@@ -16,6 +16,10 @@ import newsletterRoute from "./newsletter.route.js";
 import globalSearchRoute from "./global_search.route.js";
 import gallaryRoute from "./gallary.route.js";
 import unitRoute from "./unit.route.js";
+import variationRoute from "./variation.route.js";
+import uspRoute from "./usp.route.js";
+import noteRoute from "./note.route.js";
+import productRoute from "./product.route.js";
 
 const routes = {
   categoryRoute,
@@ -35,7 +39,11 @@ const routes = {
   newsletterRoute,
   globalSearchRoute,
   gallaryRoute,
-  unitRoute
+  unitRoute,
+  variationRoute,
+  uspRoute,
+  noteRoute,
+  productRoute
 };
 
 export default routes;

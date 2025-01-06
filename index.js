@@ -48,6 +48,10 @@ app.use("/api/v1/banners", routes.bannerRoute);
 // app.use("/api/v1/globals", routes.globalSearchRoute);
 // app.use("/api/v1/gallaries", routes.gallaryRoute);
 app.use("/api/v1/units", routes.unitRoute);
+app.use("/api/v1/variations", routes.variationRoute);
+app.use("/api/v1/usps", routes.uspRoute);
+app.use("/api/v1/notes", routes.noteRoute);
+app.use("/api/v1/products", routes.productRoute);
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);
