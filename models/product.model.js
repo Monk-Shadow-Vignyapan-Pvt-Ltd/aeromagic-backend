@@ -42,9 +42,7 @@ const productSchema = new mongoose.Schema({
       },
       discountType:{
         type: String,
-        required: function () {
-          return !this.hasVariations;
-        },
+        required: true,
       },
       finalSellingPrice: {
         type: Number,
@@ -52,11 +50,25 @@ const productSchema = new mongoose.Schema({
           return !this.hasVariations;
         },
       },
+      variationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        required: function () {
+            return this.hasVariations;
+          },
+    },
     variationPrices: {
         type: mongoose.Schema.Types.Mixed,  // Use Mixed for flexible structure (JSON-like object)
         required: function () {
             return this.hasVariations;
           },
+    },
+    uspIds:{
+      type: mongoose.Schema.Types.Mixed, 
+        required:false
+    },
+    noteIds:{
+      type: mongoose.Schema.Types.Mixed, 
+        required:false
     },
      userId:{
         type: mongoose.Schema.Types.ObjectId, 

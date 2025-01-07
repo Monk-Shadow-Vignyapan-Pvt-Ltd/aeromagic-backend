@@ -20,6 +20,7 @@ import variationRoute from "./variation.route.js";
 import uspRoute from "./usp.route.js";
 import noteRoute from "./note.route.js";
 import productRoute from "./product.route.js";
+import comboRoute from "./combo.route.js";
 
 const routes = {
   categoryRoute,
@@ -43,7 +44,8 @@ const routes = {
   variationRoute,
   uspRoute,
   noteRoute,
-  productRoute
+  productRoute,
+  comboRoute
 };
 
 export default routes;
