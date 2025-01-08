@@ -70,6 +70,10 @@ const productSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.Mixed, 
         required:false
     },
+    caution:{
+      type: String,
+      required: false,
+    },
      userId:{
         type: mongoose.Schema.Types.ObjectId, 
           required:false
