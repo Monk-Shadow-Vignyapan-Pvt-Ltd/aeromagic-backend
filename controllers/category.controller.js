@@ -6,31 +6,20 @@ import sharp from 'sharp';
 // Add a new category
 export const addCategory = async (req, res) => {
     try {
-        const { categoryName,categoryDescription,rank,isParent, imageBase64,userId } = req.body;
+        let { categoryName,categoryDescription,rank,isParent, imageBase64,others,userId } = req.body;
         // Validate base64 image data
         if (!imageBase64 || !imageBase64.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
-        const base64Data = imageBase64.split(';base64,').pop();
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Resize and compress the image using sharp
-        const compressedBuffer = await sharp(buffer)
-            .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-            .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-            .toBuffer();
-
-        // Convert back to Base64 for storage (optional)
-        const compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-
         // Save the category details in MongoDB
         const category = new Category({
             categoryName:req.body.name,
-            categoryImage: compressedBase64, // Store the base64 string in MongoDB
+            categoryImage: imageBase64, // Store the base64 string in MongoDB
             categoryDescription:req.body.description,
             userId:req.body.userId,
             rank,
+            others,
             isParent
         });
 
@@ -71,24 +60,14 @@ export const getCategoryById = async (req, res) => {
 export const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { categoryName, imageBase64,rank,isParent, categoryDescription,userId } = req.body;
+        const { categoryName, imageBase64,rank,isParent, categoryDescription,userId ,others} = req.body;
 
         // Validate base64 image data
         if (imageBase64 && !imageBase64.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
-        const base64Data = imageBase64.split(';base64,').pop();
-        const buffer = Buffer.from(base64Data, 'base64');
-
-        // Resize and compress the image using sharp
-        const compressedBuffer = await sharp(buffer)
-            .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-            .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-            .toBuffer();
-
-        // Convert back to Base64 for storage (optional)
-        const compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+       
 
         const updatedData = {
             categoryName:req.body.name,
@@ -96,7 +75,8 @@ export const updateCategory = async (req, res) => {
             userId:req.body.userId,
             rank,
             isParent,
-            ...(compressedBase64 && { categoryImage: compressedBase64 }) // Only update image if new image is provided
+            others,
+            ...(imageBase64 && { categoryImage: imageBase64 }) // Only update image if new image is provided
         };
 
         const category = await Category.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });

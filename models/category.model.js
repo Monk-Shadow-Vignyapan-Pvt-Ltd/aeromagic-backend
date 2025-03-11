@@ -15,6 +15,10 @@ const categorySchema = new mongoose.Schema({
       type: Boolean, // Store image as base64 or use a URL reference
       required: true,
     },
+    others: {
+            type: mongoose.Schema.Types.Mixed,  // Use Mixed for flexible structure (JSON-like object)
+            required: false
+        },
     userId:{
         type: mongoose.Schema.Types.ObjectId, 
           required:false
