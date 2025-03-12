@@ -21,6 +21,7 @@ import uspRoute from "./usp.route.js";
 import noteRoute from "./note.route.js";
 import productRoute from "./product.route.js";
 import comboRoute from "./combo.route.js";
+import customerRoute from "./customer.route.js";
 
 const routes = {
   categoryRoute,
@@ -45,7 +46,8 @@ const routes = {
   uspRoute,
   noteRoute,
   productRoute,
-  comboRoute
+  comboRoute,
+  customerRoute
 };
 
 export default routes;

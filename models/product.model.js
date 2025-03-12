@@ -10,12 +10,9 @@ const productSchema = new mongoose.Schema({
         type: String, // Store image as base64 or use a URL reference
         required: false,
     },
+    gender: { type: String, required: true },
     shortDescription: { type: String, required: true },
     longDescription: { type: String, required: false },
-    productUrl: {
-        type: String, // Store image as base64 or use a URL reference
-        required: true,
-    },
     categoryId: {
         type: mongoose.Schema.Types.ObjectId,  // Use Mixed for flexible structure (JSON-like object)
         required: true
@@ -77,7 +74,20 @@ const productSchema = new mongoose.Schema({
      userId:{
         type: mongoose.Schema.Types.ObjectId, 
           required:false
-      }
+      },
+      productUrl: { type: String, required: true ,unique: true },
+     oldUrls: {
+        type: mongoose.Schema.Types.Mixed,  // Use Mixed for flexible structure (JSON-like object)
+        required: false
+    },
+     seoTitle:{
+        type: String,
+        required: false,
+      },
+     seoDescription: {
+        type: String,
+        required: false,
+      },
 
 }, { timestamps: true });
 

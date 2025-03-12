@@ -8,9 +8,9 @@ export const addProduct = async (req, res) => {
             productName, 
             productImage, 
             imageAlt,
+            gender,
             shortDescription, 
-            longDescription, 
-            productUrl, 
+            longDescription,  
             categoryId, 
             multiImages, 
             hasVariations, 
@@ -23,7 +23,8 @@ export const addProduct = async (req, res) => {
             uspIds,
             noteIds,
             caution, 
-            userId 
+            userId,
+            productUrl,seoTitle,seoDescription, 
         } = req.body;
 
         // Validate base64 image data for product image
@@ -50,9 +51,10 @@ export const addProduct = async (req, res) => {
             productName,
             productImage: compressedBase64,
             imageAlt,
+            gender,
             shortDescription,
             longDescription,
-            productUrl,
+            productUrl,seoTitle,seoDescription,
             categoryId,
             multiImages,
             hasVariations,
@@ -101,6 +103,18 @@ export const getProductById = async (req, res) => {
     }
 };
 
+export const getProductByUrl = async (req, res) => {
+    try {
+        const productUrl = req.params.id;
+        const product = await Product.findOne({productUrl})
+        if (!product) return res.status(404).json({ message: "Product not found!", success: false });
+        return res.status(200).json({ product, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch product', success: false });
+    }
+};
+
 // Update product by ID
 export const updateProduct = async (req, res) => {
     try {
@@ -108,10 +122,11 @@ export const updateProduct = async (req, res) => {
         const { 
             productName, 
             productImage,
-            imageAlt, 
+            imageAlt,
+            gender, 
             shortDescription, 
             longDescription, 
-            productUrl, 
+            productUrl, seoTitle,seoDescription,
             categoryId, 
             multiImages, 
             hasVariations, 
@@ -126,6 +141,17 @@ export const updateProduct = async (req, res) => {
             caution, 
             userId 
         } = req.body;
+
+        const existingProduct = await Product.findById(id);
+        if (!existingProduct) {
+            return res.status(404).json({ message: "Product not found!", success: false });
+        }
+
+        // Initialize oldUrls array and add the previous serviceUrl if it's different
+        let oldUrls = existingProduct.oldUrls || [];
+        if (existingProduct.productUrl && existingProduct.productUrl !== productUrl && !oldUrls.includes(existingProduct.productUrl)) {
+            oldUrls.push(existingProduct.productUrl);
+        }
 
         // Validate base64 image data if provided
         let compressedBase64 = "";
@@ -145,9 +171,10 @@ export const updateProduct = async (req, res) => {
             productName,
             productImage: productImage ? compressedBase64 : productImage,
             imageAlt,
+            gender,
             shortDescription,
             longDescription,
-            productUrl,
+            productUrl,oldUrls,seoTitle,seoDescription,
             categoryId,
             multiImages,
             hasVariations,

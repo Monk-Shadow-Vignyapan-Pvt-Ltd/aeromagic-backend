@@ -6,19 +6,22 @@ import sharp from 'sharp';
 // Add a new category
 export const addCategory = async (req, res) => {
     try {
-        let { categoryName,categoryDescription,rank,isParent, imageBase64,others,userId } = req.body;
+        let { categoryName, categoryDescription, rank, isParent, imageBase64, howToUse, others, userId } = req.body;
         // Validate base64 image data
         if (!imageBase64 || !imageBase64.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
+        
+
         // Save the category details in MongoDB
         const category = new Category({
-            categoryName:req.body.name,
+            categoryName: req.body.name,
             categoryImage: imageBase64, // Store the base64 string in MongoDB
-            categoryDescription:req.body.description,
-            userId:req.body.userId,
+            categoryDescription: req.body.description,
+            userId: req.body.userId,
             rank,
+            howToUse,
             others,
             isParent
         });
@@ -60,21 +63,24 @@ export const getCategoryById = async (req, res) => {
 export const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { categoryName, imageBase64,rank,isParent, categoryDescription,userId ,others} = req.body;
+        let { categoryName, imageBase64, rank, isParent, categoryDescription, userId, howToUse, others } = req.body;
 
         // Validate base64 image data
         if (imageBase64 && !imageBase64.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
-       
+        
+
+
 
         const updatedData = {
-            categoryName:req.body.name,
-            categoryDescription:req.body.description,
-            userId:req.body.userId,
+            categoryName: req.body.name,
+            categoryDescription: req.body.description,
+            userId: req.body.userId,
             rank,
             isParent,
+            howToUse,
             others,
             ...(imageBase64 && { categoryImage: imageBase64 }) // Only update image if new image is provided
         };

@@ -11,23 +11,12 @@ export const addVariation = async (req, res) => {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
-        // Resize and compress the icon and URL images using sharp
-        const processImage = async (imageBase64) => {
-            const base64Data = imageBase64.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-                .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-                .toBuffer();
-            return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        };
-
-        const processedIcon = variationIcon ? await processImage(variationIcon) : variationIcon;
+       
 
         // Create and save the variation details in MongoDB
         const variation = new Variation({
             variationName,
-            variationIcon: processedIcon,
+            variationIcon: variationIcon,
             variationUrl,
             categories,
             variationValues,
@@ -78,22 +67,11 @@ export const updateVariation = async (req, res) => {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
-        // Resize and compress the icon and URL images using sharp
-        const processImage = async (imageBase64) => {
-            const base64Data = imageBase64.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-                .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-                .toBuffer();
-            return `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        };
-
-        const processedIcon = variationIcon ? await processImage(variationIcon) : variationIcon;
+        
 
         const updatedData = {
             variationName,
-            variationIcon: processedIcon,
+            variationIcon: variationIcon,
             variationUrl,
             categories,
             variationValues,
