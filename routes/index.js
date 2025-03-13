@@ -22,6 +22,7 @@ import noteRoute from "./note.route.js";
 import productRoute from "./product.route.js";
 import comboRoute from "./combo.route.js";
 import customerRoute from "./customer.route.js";
+import logoRoute from "./logo.route.js";
 
 const routes = {
   categoryRoute,
@@ -47,7 +48,8 @@ const routes = {
   noteRoute,
   productRoute,
   comboRoute,
-  customerRoute
+  customerRoute,
+  logoRoute
 };
 
 export default routes;

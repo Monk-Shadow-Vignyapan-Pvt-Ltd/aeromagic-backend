@@ -54,6 +54,7 @@ app.use("/api/v1/notes", routes.noteRoute);
 app.use("/api/v1/products", routes.productRoute);
 app.use("/api/v1/combos", routes.comboRoute);
 app.use("/api/v1/customers", routes.customerRoute);
+app.use("/api/v1/logos", routes.logoRoute);
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);
