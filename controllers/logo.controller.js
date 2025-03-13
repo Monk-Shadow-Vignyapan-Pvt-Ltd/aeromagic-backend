@@ -1,4 +1,4 @@
-import { Logo } from "../models/Doctor.js"; 
+import { Logo } from "../models/logo.model.js"; 
 
 // Add a new Logo
 export const addLogo = async (req, res) => {
