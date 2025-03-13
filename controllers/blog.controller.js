@@ -4,7 +4,7 @@ import sharp from 'sharp';
 // Add a new Blog
 export const addBlog = async (req, res) => {
     try {
-        const { content,blogTitle,blogImage,blogDescription,userId } = req.body;
+        const { content,blogTitle,blogImage,blogDescription,blogUrl,seoTitle,seoDescription,userId } = req.body;
         // Validate blog content (e.g., check for base64 image or URL)
         if (!content || typeof content !== 'string') {
             return res.status(400).json({ message: 'Invalid blog content', success: false });
@@ -29,6 +29,7 @@ export const addBlog = async (req, res) => {
             blogImage:compressedBase64,
             userId,
             blog:content,  // Store the blog data (could be an image or text)
+            blogUrl,seoTitle,seoDescription,
         });
 
         await newBlog.save();
@@ -68,11 +69,34 @@ export const getBlogById = async (req, res) => {
     }
 };
 
+export const getBlogByUrl = async (req, res) => {
+    try {
+        const blogUrl = req.params.id;
+        const blog = await Blog.findOne({blogUrl})
+        if (!blog) return res.status(404).json({ message: "Blog not found!", success: false });
+        return res.status(200).json({ blog, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch Blog', success: false });
+    }
+};
+
 // Update blog by ID
 export const updateBlog = async (req, res) => {
     try {
         const { id } = req.params;
-        const { content,blogTitle,blogImage,blogDescription,userId } = req.body;
+        const { content,blogTitle,blogImage,blogDescription,blogUrl,seoTitle,seoDescription,userId } = req.body;
+
+        const existingBlog = await Blog.findById(id);
+                        if (!existingBlog) {
+                            return res.status(404).json({ message: "Blog not found!", success: false });
+                        }
+                
+                        // Initialize oldUrls array and add the previous serviceUrl if it's different
+                        let oldUrls = existingBlog.oldUrls || [];
+                        if (existingBlog.blogUrl && existingBlog.blogUrl !== blogUrl && !oldUrls.includes(existingBlog.blogUrl)) {
+                            oldUrls.push(existingBlog.blogUrl);
+                        }
 
         // Validate blog content
         if (!content || typeof content !== 'string') {
@@ -93,7 +117,7 @@ export const updateBlog = async (req, res) => {
 
         const updatedData = { blog:content,blogTitle,
             blogDescription,
-            blogImage:compressedBase64,userId };
+            blogImage:compressedBase64,userId, blogUrl,oldUrls,seoTitle,seoDescription,};
 
         const updatedBlog = await Blog.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });
         if (!updatedBlog) {
@@ -103,6 +127,18 @@ export const updateBlog = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(400).json({ message: error.message, success: false });
+    }
+};
+
+export const getBlogsFrontend = async (req, res) => {
+    try {
+        const blogs = await Blog.find()
+        .select('blogUrl')
+        if (!blogs) return res.status(404).json({ message: "Blogs not found", success: false });
+        return res.status(200).json({ blogs });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch blogs', success: false });
     }
 };
 

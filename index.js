@@ -36,7 +36,7 @@ app.use("/api/v1/banners", routes.bannerRoute);
 // app.use("/api/v1/services", routes.serviceRoute);
 // app.use("/api/v1/testimonials", routes.testimonialRoute);
 // app.use("/api/v1/faqs", routes.faqRoute);
-// app.use("/api/v1/blogs", routes.blogRoute);
+app.use("/api/v1/blogs", routes.blogRoute);
 // app.use("/api/v1/contacts", routes.contactRoute);
 // app.use("/api/v1/subServices", routes.subServiceRoute);
 // app.use("/api/v1/followups", routes.contactFollowupRoute);

@@ -14,6 +14,23 @@ const blogSchema = new mongoose.Schema({
       type: String, // Store image as base64 or use a URL reference
       required: true,
     },
+    blogUrl:{
+      type: String, 
+      required: true,
+      unique: true
+    },
+    oldUrls: {
+                  type: mongoose.Schema.Types.Mixed,  // Use Mixed for flexible structure (JSON-like object)
+                  required: false
+              },
+    seoTitle:{
+      type: String, 
+      required: false,
+    },
+    seoDescription:{
+      type: String, 
+      required: false,
+    },
     blog: {
         type: String, // Store image as base64 or use a URL reference
         required: true,
