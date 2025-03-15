@@ -50,6 +50,22 @@ export const getLogoById = async (req, res) => {
     }
 };
 
+export const getEnabledLogo = async (req, res) => {
+    try {
+        const logo = await Logo.findOne({ logoEnabled: true });
+
+        if (!logo) {
+            return res.status(404).json({ message: "Enabled logo not found!", success: false });
+        }
+
+        return res.status(200).json({ logo, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch enabled logo', success: false });
+    }
+};
+
+
 // Update Logo by ID
 export const updateLogo = async (req, res) => {
     try {
@@ -66,6 +82,10 @@ export const updateLogo = async (req, res) => {
             logoEnabled,
             userId
         };
+
+        if (logoEnabled) {
+            await Logo.updateMany({ _id: { $ne: id } }, { logoEnabled: false });
+        }
 
         const logo = await Logo.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });
         if (!logo) return res.status(404).json({ message: "Logo not found!", success: false });
