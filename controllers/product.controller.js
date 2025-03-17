@@ -13,7 +13,8 @@ export const addProduct = async (req, res) => {
             longDescription,  
             categoryId, 
             multiImages, 
-            hasVariations, 
+            hasVariations,
+            inStock, 
             price, 
             discount,
             discountType, 
@@ -58,6 +59,7 @@ export const addProduct = async (req, res) => {
             categoryId,
             multiImages,
             hasVariations,
+            inStock,
             price,
             discount,
             discountType,
@@ -129,7 +131,8 @@ export const updateProduct = async (req, res) => {
             productUrl, seoTitle,seoDescription,
             categoryId, 
             multiImages, 
-            hasVariations, 
+            hasVariations,
+            inStock, 
             price, 
             discount,
             discountType, 
@@ -178,6 +181,7 @@ export const updateProduct = async (req, res) => {
             categoryId,
             multiImages,
             hasVariations,
+            inStock,
             price,
             discount,
             discountType,
@@ -209,5 +213,75 @@ export const deleteProduct = async (req, res) => {
     } catch (error) {
         console.error('Error deleting product:', error);
         res.status(500).json({ message: 'Failed to delete product', success: false });
+    }
+};
+
+export const getProductsForHome = async (req, res) => {
+    try {
+        const products = await Product.find().select('productName  productImage hasVariations price categoryId discount discountType finalSellingPrice variationPrices productUrl');
+        if (!products) return res.status(404).json({ message: "Products not found", success: false });
+        return res.status(200).json({ products });
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ message: 'Failed to fetch products', success: false });
+    }
+};
+
+export const getProductsByCategory = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { brand, ingredient, availability, price, size, gender, rating, page = 1 } = req.query;
+
+        let filter = { };
+
+        // Apply filters dynamically
+        filter.categoryId = id;
+        if (brand) filter.brand = brand;
+        if (ingredient) filter.ingredients = { $in: ingredient.split(",") }; // If multiple, expect comma-separated
+        if (availability) filter.availability = availability === "true";
+        if (size) filter.size = { $in: size.split(",") };
+        if (gender) filter.gender = { $in: gender.split(",") };
+        if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
+
+        // Price filter (expects min-max format: "10-100")
+        if (price) {
+            const priceRanges = price.split(",").map(range => range.split("-").map(Number)); // Convert to number arrays
+            filter.$or = priceRanges.map(([min, max]) => ({
+                $or: [
+                    // Case 1: Products without variations (filter by finalSellingPrice)
+                    { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
+        
+                    // Case 2: Products with variations (filter by variationPrices array)
+                    { hasVariations: true, variationPrices: { $elemMatch: { finalSellingPrice: { $gte: min, $lte: max } } } }
+                ]
+            }));
+        }
+
+        // Pagination
+        const limit = 12;
+        const skip = (page - 1) * limit;
+
+        const totalProducts = await Product.countDocuments(filter);
+        const products = await Product.find(filter)
+            .select('productName productImage hasVariations price categoryId discount discountType finalSellingPrice variationPrices productUrl')
+            .sort({ createdAt: -1 }) 
+            .skip(skip)
+            .limit(limit);
+
+        if (!products.length) return res.status(404).json({ message: "No products found", success: false });
+
+        res.status(200).json({
+            products,
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(totalProducts / limit),
+                totalProducts,
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ message: 'Failed to fetch products', success: false });
     }
 };
