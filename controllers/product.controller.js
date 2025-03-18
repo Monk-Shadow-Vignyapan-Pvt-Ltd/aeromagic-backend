@@ -1,5 +1,6 @@
 import { Product } from '../models/product.model.js'; // Adjust the import to match your file structure
 import sharp from 'sharp';
+import mongoose from "mongoose";
 
 // Add a new product
 export const addProduct = async (req, res) => {
@@ -230,15 +231,14 @@ export const getProductsForHome = async (req, res) => {
 export const getProductsByCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { brand, ingredient, availability, price, size, gender, rating, page = 1 } = req.query;
+        const { brand, ingredient, availability, price, size, gender, rating, page = 1,sortOption } = req.query;
 
         let filter = { };
 
         // Apply filters dynamically
-        filter.categoryId = id;
+        filter.categoryId = new mongoose.Types.ObjectId(id);
         if (brand) filter.brand = brand;
         if (ingredient) filter.ingredients = { $in: ingredient.split(",") }; // If multiple, expect comma-separated
-        if (availability) filter.availability = availability === "true";
         if (size) filter.size = { $in: size.split(",") };
         if (gender) filter.gender = { $in: gender.split(",") };
         if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
@@ -257,18 +257,63 @@ export const getProductsByCategory = async (req, res) => {
             }));
         }
 
+        if (availability) {
+            const availabilityArray = availability.split(",").map(status => status === "true"); // Convert "true" or "false" strings to actual booleans
+        
+            filter.$or = [
+                { hasVariations: false, inStock: { $in: availabilityArray } }, // For products without variations
+                { hasVariations: true, variationPrices: { $elemMatch: { checked: { $in: availabilityArray } } } } // For products with variations
+            ];
+        }
+        
+
         // Pagination
         const limit = 12;
         const skip = (page - 1) * limit;
+        let sortQuery = { createdAt: -1 };
 
-        const totalProducts = await Product.countDocuments(filter);
-        const products = await Product.find(filter)
-            .select('productName productImage hasVariations price categoryId discount discountType finalSellingPrice variationPrices productUrl')
-            .sort({ createdAt: -1 }) 
-            .skip(skip)
-            .limit(limit);
+        const pipeline = [
+            { $match: filter },
+            {
+                $addFields: {
+                    computedPrice: {
+                        $cond: {
+                            if: { $eq: ["$hasVariations", true] },
+                            then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                            else: "$finalSellingPrice"
+                        }
+                    }
+                }
+            }
+        ];
+
+        // Sorting Logic
+        switch (sortOption) {
+            case "price-low-high":
+                pipeline.push({ $sort: { computedPrice: 1 } });
+                break;
+            case "price-high-low":
+                pipeline.push({ $sort: { computedPrice: -1 } });
+                break;
+            case "rating-high-low":
+                pipeline.push({ $sort: { rating: -1 } });
+                break;
+            case "rating-low-high":
+                pipeline.push({ $sort: { rating: 1 } });
+                break;
+            default:
+                pipeline.push({ $sort: { createdAt: -1 } });
+                break;
+        }
+
+        // Pagination in aggregation
+        pipeline.push({ $skip: skip }, { $limit: limit });
+
+        const products = await Product.aggregate(pipeline);
 
         if (!products.length) return res.status(404).json({ message: "No products found", success: false });
+
+        const totalProducts = await Product.countDocuments(filter);
 
         res.status(200).json({
             products,

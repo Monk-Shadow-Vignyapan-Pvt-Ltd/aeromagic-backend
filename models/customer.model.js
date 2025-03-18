@@ -18,6 +18,10 @@ const customerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    wishList:{
+        type: mongoose.Schema.Types.Mixed, 
+        required: true 
+    }
 }, { timestamps: true });
 
 export const Customer = mongoose.model("Customer", customerSchema);

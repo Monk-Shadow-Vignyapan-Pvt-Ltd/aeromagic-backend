@@ -157,3 +157,26 @@ export const resetPassword = async (req, res) => {
       }
   };
 
+  export const updateWishList = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { wishList } = req.body;
+
+        const customer = await Customer.findByIdAndUpdate(
+            id,
+            { $set: { wishList } }, // Ensures only wishList is updated
+            { new: true, runValidators: true }
+        );
+
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found!", success: false });
+        }
+
+        return res.status(200).json({ customer, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ message: error.message, success: false });
+    }
+};
+
+
