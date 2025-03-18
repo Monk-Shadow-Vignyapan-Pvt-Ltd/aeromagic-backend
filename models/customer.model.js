@@ -18,10 +18,7 @@ const customerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    wishList:{
-        type: mongoose.Schema.Types.Mixed, 
-        required: true 
-    }
+    wishList: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }]
 }, { timestamps: true });
 
 export const Customer = mongoose.model("Customer", customerSchema);

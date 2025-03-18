@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import sharp from 'sharp';
 
+
 // Signup Controller
 export const register = async (req, res) => {
     try {
@@ -80,10 +81,10 @@ export const tokenIsValid = async (req, res) => {
 // Get User Info Controller
 export const getCustomer = async (req, res) => {
   try {
-    const customer = await Customer.findById(req.customer);
+    const customer = await Customer.findById(req.user);
 
     res.json({
-        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber
+        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -160,23 +161,66 @@ export const resetPassword = async (req, res) => {
   export const updateWishList = async (req, res) => {
     try {
         const { id } = req.params;
-        const { wishList } = req.body;
+        const { wishList } = req.body; // Expecting a single productId
 
-        const customer = await Customer.findByIdAndUpdate(
-            id,
-            { $set: { wishList } }, // Ensures only wishList is updated
-            { new: true, runValidators: true }
-        );
-
-        if (!customer) {
-            return res.status(404).json({ message: "Customer not found!", success: false });
+        if (!wishList) {
+            return res.status(400).json({ message: "Product ID is required!", success: false });
         }
 
-        return res.status(200).json({ customer, success: true });
+        const customer = await Customer.findById(id);
+        if (!customer) return res.status(404).json({ message: "Customer not found!", success: false });
+
+        // Ensure wishList is initialized properly
+        if (!Array.isArray(customer.wishList)) {
+            customer.wishList = [];
+        }
+
+        const productId = String(wishList); // Convert to string for safe comparison
+
+        // Toggle wishList (add or remove productId)
+        if (customer.wishList.map(String).includes(productId)) {
+            customer.wishList = customer.wishList.filter((item) => String(item) !== productId);
+        } else {
+            customer.wishList.push(productId);
+        }
+
+        // 🔥 Force an update to make sure it persists in MongoDB
+        await Customer.updateOne({ _id: id }, { $set: { wishList: customer.wishList } });
+
+        return res.status(200).json({ customer: { ...customer.toObject(), wishList: customer.wishList }, success: true });
     } catch (error) {
-        console.log(error);
+        console.error(error);
         res.status(400).json({ message: error.message, success: false });
     }
 };
+
+export const getProductsByWishList = async (req, res) => {
+  try {
+      const { id } = req.params;
+
+      // Find the customer and populate the wishList
+      const customer = await Customer.findById(id).populate("wishList");
+
+      if (!customer) {
+          return res.status(404).json({ message: "Customer not found", success: false });
+      }
+
+      // Ensure the wishlist exists and is an array
+      if (!Array.isArray(customer.wishList) || customer.wishList.length === 0) {
+          return res.status(200).json({ message: "No products in wishList", products: [], success: true });
+      }
+
+      return res.status(200).json({ products: customer.wishList, success: true });
+
+  } catch (error) {
+      console.error("Error fetching wishlist products:", error);
+      res.status(500).json({ message: "Failed to fetch wishlist products", success: false });
+  }
+};
+
+
+
+
+
 
 

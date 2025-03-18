@@ -1,6 +1,6 @@
 import express from "express";
 import {auth} from "../middleware/auth.js"
-import { register, login, tokenIsValid, getCustomer,getCustomers,resetPassword,deleteCustomer,updateWishList} from "../controllers/customer.controller.js";
+import { register, login, tokenIsValid, getCustomer,getCustomers,resetPassword,deleteCustomer,updateWishList,getProductsByWishList} from "../controllers/customer.controller.js";
 
 const router = express.Router();
 
@@ -12,6 +12,6 @@ router.route("/getCustomers").get( getCustomers);
 router.route("/resetPassword/:id").post( resetPassword);
 router.route("/deleteCustomer/:id").delete( deleteCustomer);
 router.route("/updateWishList/:id").post( updateWishList);
-
+router.route("/getProductsByWishList/:id").get( getProductsByWishList);
 
 export default router;
