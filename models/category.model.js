@@ -7,6 +7,10 @@ const categorySchema = new mongoose.Schema({
         type: String, // Store image as base64 or use a URL reference
         required: true,
       },
+      mobileImage: {
+        type: String, // Store image as base64 or use a URL reference
+        required: true,
+      },
     rank:{
       type: String, // Store image as base64 or use a URL reference
       required: true,    

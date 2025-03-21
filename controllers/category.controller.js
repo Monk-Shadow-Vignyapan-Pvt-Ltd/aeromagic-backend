@@ -6,9 +6,9 @@ import sharp from 'sharp';
 // Add a new category
 export const addCategory = async (req, res) => {
     try {
-        let { categoryName, categoryDescription, rank, isParent, imageBase64, howToUse, others, userId } = req.body;
+        let { categoryName, categoryDescription, rank, isParent, imageBase64,mobileImage, howToUse, others, userId } = req.body;
         // Validate base64 image data
-        if (!imageBase64 || !imageBase64.startsWith('data:image')) {
+        if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
@@ -18,6 +18,7 @@ export const addCategory = async (req, res) => {
         const category = new Category({
             categoryName: req.body.name,
             categoryImage: imageBase64, // Store the base64 string in MongoDB
+            mobileImage,
             categoryDescription: req.body.description,
             userId: req.body.userId,
             rank,
@@ -63,10 +64,10 @@ export const getCategoryById = async (req, res) => {
 export const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        let { categoryName, imageBase64, rank, isParent, categoryDescription, userId, howToUse, others } = req.body;
+        let { categoryName, imageBase64,mobileImage, rank, isParent, categoryDescription, userId, howToUse, others } = req.body;
 
         // Validate base64 image data
-        if (imageBase64 && !imageBase64.startsWith('data:image')) {
+        if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
@@ -82,7 +83,8 @@ export const updateCategory = async (req, res) => {
             isParent,
             howToUse,
             others,
-            ...(imageBase64 && { categoryImage: imageBase64 }) // Only update image if new image is provided
+            ...(imageBase64 && { categoryImage: imageBase64 }), // Only update image if new image is provided
+            mobileImage,
         };
 
         const category = await Category.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });

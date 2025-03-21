@@ -6,10 +6,10 @@ import sharp from 'sharp';
 
 export const addBanner = async (req, res) => {
     try {
-        const { imageBase64,userId,bannerUrl } = req.body;
+        const { imageBase64,mobileImage,userId,bannerUrl } = req.body;
 
         // Validate base64 data (make sure it's an image)
-        if (!imageBase64 || !imageBase64.startsWith('data:image')) {
+        if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
 
@@ -28,6 +28,7 @@ export const addBanner = async (req, res) => {
         // Save the base64 image string to MongoDB (or handle storage as needed)
         const banner = new Banner({
             image: imageBase64, // Store the base64 string in MongoDB
+            mobileImage,
             bannerUrl,
             userId
         });
@@ -68,10 +69,10 @@ export const updateBanner = async (req, res) => {
     try {
         const { id } = req.params;
         const updatedData = req.body;
-        const { imageBase64,userId,bannerUrl } = req.body;
+        const { imageBase64,mobileImage,userId,bannerUrl } = req.body;
 
         // Validate base64 data (make sure it's an image)
-        if (!imageBase64 || !imageBase64.startsWith('data:image')) {
+        if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')) {
             return res.status(400).json({ message: 'Invalid image data', success: false });
         }
         // const base64Data = imageBase64.split(';base64,').pop();
@@ -87,6 +88,7 @@ export const updateBanner = async (req, res) => {
         // const compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
         const banner = await Banner.findByIdAndUpdate(id, {
             image: imageBase64, // Store the base64 string in MongoDB
+            mobileImage,
             bannerUrl,
             userId
         }, { new: true, runValidators: true });
