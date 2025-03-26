@@ -14,7 +14,7 @@ const connectDB = async () => {
         console.log('mongodb connected successfully');
         
         // Initialize default statuses (if required)
-        //await initializeDefaultStatuses();
+        await initializeDefaultStatuses();
 
         const defaultAdminEmail = "admin@gmail.com";
         const defaultAdminPassword = "admin123"; // Plaintext password (for example)

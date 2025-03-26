@@ -42,7 +42,7 @@ app.use("/api/v1/contacts", routes.contactRoute);
 // app.use("/api/v1/followups", routes.contactFollowupRoute);
 // app.use("/api/v1/surveys", routes.surveyRoute);
 // app.use("/api/v1/survey-answers", routes.surveyAnswerRoute);
-// app.use("/api/v1/statuses", routes.statusRoute);
+ app.use("/api/v1/statuses", routes.statusRoute);
 // app.use("/api/v1/seos", routes.seoRoute);
 // app.use("/api/v1/newsletters", routes.newsletterRoute);
 // app.use("/api/v1/globals", routes.globalSearchRoute);
