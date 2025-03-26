@@ -35,7 +35,8 @@ const contactSchema = new mongoose.Schema({
     userId:{
         type: mongoose.Schema.Types.ObjectId, 
           required:false
-      }
+      },
+    followups: { type: mongoose.Schema.Types.Mixed, required: false },
 }, {
     timestamps: true, // Adds createdAt and updatedAt fields automatically
 });

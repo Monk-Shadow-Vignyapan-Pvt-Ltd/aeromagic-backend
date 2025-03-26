@@ -84,7 +84,7 @@ export const getCustomer = async (req, res) => {
     const customer = await Customer.findById(req.user);
 
     res.json({
-        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList
+        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList,otherAddress:customer.otherAddress
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -217,6 +217,55 @@ export const getProductsByWishList = async (req, res) => {
       res.status(500).json({ message: "Failed to fetch wishlist products", success: false });
   }
 };
+
+export const updateAddressList = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { address } = req.body; // Address is an object
+
+      if (!address || typeof address !== "object") {
+          return res.status(400).json({ message: "Valid address object is required!", success: false });
+      }
+
+      const customer = await Customer.findById(id);
+      if (!customer) {
+          return res.status(404).json({ message: "Customer not found!", success: false });
+      }
+
+      if (!Array.isArray(customer.otherAddress)) {
+          customer.otherAddress = [];
+      }
+
+       // If the new address is marked as default, remove default from others
+       if (address.defaultAddress) {
+        customer.otherAddress = customer.otherAddress.map(addr => ({
+            ...addr,
+            defaultAddress: false
+        }));
+    }
+
+      // Check if the address already exists in the array
+      const isDuplicate = customer.otherAddress.some(
+          (addr) => JSON.stringify(addr) === JSON.stringify(address)
+      );
+
+      if (!isDuplicate) {
+          // Add the new address if it's not a duplicate
+          customer.otherAddress.push(address);
+          await Customer.updateOne({ _id: id }, { $set: { otherAddress: customer.otherAddress } });
+      }
+
+      return res.status(200).json({ 
+          customer: { ...customer.toObject(), otherAddress: customer.otherAddress },
+          success: true 
+      });
+  } catch (error) {
+      console.error("Error updating address list:", error);
+      res.status(500).json({ message: "Failed to update address list", success: false });
+  }
+};
+
+
 
 
 

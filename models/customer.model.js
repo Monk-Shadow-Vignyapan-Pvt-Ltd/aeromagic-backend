@@ -18,6 +18,10 @@ const customerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    otherAddress:{
+        type: mongoose.Schema.Types.Mixed,
+        required: false
+    },
     wishList: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
 }, { timestamps: true });
 

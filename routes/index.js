@@ -23,6 +23,7 @@ import productRoute from "./product.route.js";
 import comboRoute from "./combo.route.js";
 import customerRoute from "./customer.route.js";
 import logoRoute from "./logo.route.js";
+import delhiveryRoute from "./delhivery.route.js";
 
 const routes = {
   categoryRoute,
@@ -49,7 +50,8 @@ const routes = {
   productRoute,
   comboRoute,
   customerRoute,
-  logoRoute
+  logoRoute,
+  delhiveryRoute
 };
 
 export default routes;
