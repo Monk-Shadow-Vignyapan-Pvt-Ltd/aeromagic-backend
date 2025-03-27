@@ -149,3 +149,14 @@ export const updateCategoryRank = async (req, res) => {
     }
 };
 
+export const getCategoriesIds = async (req, res) => {
+    try {
+        const categories = await Category.find().select("categoryName");
+        if (!categories) return res.status(404).json({ message: "Categories not found", success: false });
+        return res.status(200).json({ categories });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch categories', success: false });
+    }
+};
+

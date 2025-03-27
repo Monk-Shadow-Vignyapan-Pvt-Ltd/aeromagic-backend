@@ -1,4 +1,5 @@
 import { Product } from '../models/product.model.js'; // Adjust the import to match your file structure
+import { Category } from '../models/category.model.js';
 import sharp from 'sharp';
 import mongoose from "mongoose";
 
@@ -15,7 +16,8 @@ export const addProduct = async (req, res) => {
             categoryId, 
             multiImages, 
             hasVariations,
-            inStock, 
+            inStock,
+            showOnHome, 
             price, 
             discount,
             discountType, 
@@ -35,23 +37,23 @@ export const addProduct = async (req, res) => {
         }
 
         // Resize and compress the product image using sharp
-        let compressedBase64 = "";
-        if (productImage) {
-            const base64Data = productImage.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
+        // let compressedBase64 = "";
+        // if (productImage) {
+        //     const base64Data = productImage.split(';base64,').pop();
+        //     const buffer = Buffer.from(base64Data, 'base64');
 
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-                .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-                .toBuffer();
+        //     const compressedBuffer = await sharp(buffer)
+        //         .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
+        //         .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
+        //         .toBuffer();
 
-            compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        }
+        //     compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+        // }
 
         // Create and save the product in MongoDB
         const product = new Product({
             productName,
-            productImage: compressedBase64,
+            productImage: productImage,
             imageAlt,
             gender,
             shortDescription,
@@ -61,6 +63,7 @@ export const addProduct = async (req, res) => {
             multiImages,
             hasVariations,
             inStock,
+            showOnHome,
             price,
             discount,
             discountType,
@@ -84,14 +87,52 @@ export const addProduct = async (req, res) => {
 // Get all products
 export const getProducts = async (req, res) => {
     try {
-        const products = await Product.find();
-        if (!products) return res.status(404).json({ message: "Products not found", success: false });
-        return res.status(200).json({ products });
+        const { page = 1, search = "", category = "" } = req.query;
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        // Create a search filter
+        const searchFilter = {};
+
+        // Apply search filter
+        if (search) {
+            searchFilter.$or = [
+                { productName: { $regex: search, $options: "i" } },
+                { shortDescription: { $regex: search, $options: "i" } },
+                { longDescription: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        // Apply category filter if selected
+        if (category) {
+            searchFilter.categoryId = category;
+        }
+
+        // Fetch all matching products (without pagination)
+        const allProducts = await Product.find(searchFilter);
+
+        // Apply pagination
+        const paginatedProducts = await Product.find(searchFilter)
+            .sort({ _id: -1 }) // Sort newest first
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            products: paginatedProducts,
+            success: true,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(allProducts.length / limit),
+                totalProducts: allProducts.length,
+            },
+        });
     } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({ message: 'Failed to fetch products', success: false });
+        console.error("Error fetching products:", error);
+        res.status(500).json({ message: "Failed to fetch products", success: false });
     }
 };
+
+
 
 // Get product by ID
 export const getProductById = async (req, res) => {
@@ -133,7 +174,8 @@ export const updateProduct = async (req, res) => {
             categoryId, 
             multiImages, 
             hasVariations,
-            inStock, 
+            inStock,
+            showOnHome, 
             price, 
             discount,
             discountType, 
@@ -158,22 +200,22 @@ export const updateProduct = async (req, res) => {
         }
 
         // Validate base64 image data if provided
-        let compressedBase64 = "";
-        if (productImage && productImage.startsWith('data:image')) {
-            const base64Data = productImage.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
+        // let compressedBase64 = "";
+        // if (productImage && productImage.startsWith('data:image')) {
+        //     const base64Data = productImage.split(';base64,').pop();
+        //     const buffer = Buffer.from(base64Data, 'base64');
 
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' })
-                .jpeg({ quality: 80 })
-                .toBuffer();
+        //     const compressedBuffer = await sharp(buffer)
+        //         .resize(800, 600, { fit: 'inside' })
+        //         .jpeg({ quality: 80 })
+        //         .toBuffer();
 
-            compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        }
+        //     compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
+        // }
 
         const updatedData = {
             productName,
-            productImage: productImage ? compressedBase64 : productImage,
+            productImage,
             imageAlt,
             gender,
             shortDescription,
@@ -183,6 +225,7 @@ export const updateProduct = async (req, res) => {
             multiImages,
             hasVariations,
             inStock,
+            showOnHome,
             price,
             discount,
             discountType,
@@ -219,9 +262,44 @@ export const deleteProduct = async (req, res) => {
 
 export const getProductsForHome = async (req, res) => {
     try {
-        const products = await Product.find().select('productName  productImage hasVariations price categoryId discount discountType finalSellingPrice variationPrices productUrl');
-        if (!products) return res.status(404).json({ message: "Products not found", success: false });
-        return res.status(200).json({ products });
+        // Fetch products and categories
+        const products = await Product.find().select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl');
+        const categories = await Category.find().select('categoryName rank');
+
+        if (!products.length) return res.status(404).json({ message: "Products not found", success: false });
+
+        // Filter categories with rank < 6
+        const filteredProducts = categories
+            .filter(category => parseFloat(category.rank) < 6)
+            .map(category => {
+                let categoryProducts = products.filter(product => product.categoryId.toString() === category._id.toString());
+                
+                // Get products with showOnHome: true
+                let homeProducts = categoryProducts.filter(product => product.showOnHome);
+
+                // If homeProducts are less than 8, fill with random category products
+                if (homeProducts.length < 8) {
+                    const remainingCount = 8 - homeProducts.length;
+                    const randomProducts = categoryProducts
+                        .filter(product => !product.showOnHome) // Only take products that are not already in homeProducts
+                        .sort(() => 0.5 - Math.random()) // Shuffle the remaining products
+                        .slice(0, remainingCount); // Get only needed amount
+
+                    homeProducts = [...homeProducts, ...randomProducts]; // Merge both lists
+                } else {
+                    homeProducts = homeProducts.slice(0, 8); // Ensure max 8 products
+                }
+
+                return {
+                    ...category.toObject(), // Convert category document to plain object
+                    products: homeProducts,
+                    reviews: "405",
+                    rating: "4"
+                };
+            });
+
+        return res.status(200).json({ products: filteredProducts, success: true });
+
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ message: 'Failed to fetch products', success: false });
@@ -328,5 +406,40 @@ export const getProductsByCategory = async (req, res) => {
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ message: 'Failed to fetch products', success: false });
+    }
+};
+
+export const updateShowOnHomeProduct = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { categoryId, showOnHome } = req.body;
+
+        // Check if showOnHome is set to true
+        if (showOnHome) {
+            // Count how many products in this category have showOnHome: true
+            const productsInCategory = await Product.find({ categoryId, showOnHome: true }).sort({ updatedAt: 1 });
+
+            if (productsInCategory.length >= 8) {
+                // If there are already 8, update the oldest one to false
+                const productToUpdate = productsInCategory[0]; // Oldest product
+                await Product.findByIdAndUpdate(productToUpdate._id, { showOnHome: false });
+            }
+        }
+
+        // Update the requested product
+        const updatedProduct = await Product.findByIdAndUpdate(
+            id,
+            { showOnHome },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: "Product not found!", success: false });
+        }
+
+        return res.status(200).json({ product: updatedProduct, success: true });
+    } catch (error) {
+        console.error("Error updating product:", error);
+        res.status(400).json({ message: error.message, success: false });
     }
 };
