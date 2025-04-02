@@ -2,6 +2,7 @@ import { Customer } from '../models/customer.model.js';
 import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import sharp from 'sharp';
+import { oauth2Client } from '../utils/googleClient.js';
 
 
 // Signup Controller
@@ -21,7 +22,8 @@ export const register = async (req, res) => {
             fullname,
             email,
             phoneNumber,
-            password: hashedPassword
+            password: hashedPassword,
+            authType: "local"
         });
 
         return res.status(201).json({
@@ -262,6 +264,45 @@ export const updateAddressList = async (req, res) => {
   } catch (error) {
       console.error("Error updating address list:", error);
       res.status(500).json({ message: "Failed to update address list", success: false });
+  }
+};
+
+export const googleAuth = async (req, res) => {
+  const code = req.query.code;
+  try {
+      const googleRes = await oauth2Client.getToken(code);
+      oauth2Client.setCredentials(googleRes.tokens);
+
+      const userRes = await axios.get(
+          `https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${googleRes.tokens.access_token}`
+      );
+
+      const { email, name, picture } = userRes.data;
+
+      let customer = await Customer.findOne({ email });
+
+      if (!customer) {
+          customer = await Customer.create({
+              fullname: name,
+              email,
+              image: picture,
+              authType: "social", // Mark it as a Google login
+          });
+      }
+
+      const { _id } = customer;
+      const token = jwt.sign({ _id, email }, process.env.SECRET_KEY, {
+          expiresIn: process.env.JWT_TIMEOUT,
+      });
+
+      res.status(200).json({ message: 'success', token, customer });
+
+  } catch (err) {
+      console.error("Google Auth Error:", err);
+      res.status(500).json({
+          message: "Internal Server Error",
+          error: err.toString()
+      });
   }
 };
 
