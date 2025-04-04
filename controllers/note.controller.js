@@ -4,7 +4,7 @@ import sharp from 'sharp';
 // Add a new note
 export const addNote = async (req, res) => {
     try {
-        const { noteName, noteType, noteImage, noteDescription, noteUrl, userId } = req.body;
+        const { noteName, noteImage, noteDescription, noteUrl, userId } = req.body;
 
         // Validate base64 image data
         if (!noteImage || !noteImage.startsWith('data:image')) {
@@ -28,7 +28,6 @@ export const addNote = async (req, res) => {
         // Create and save the note in MongoDB
         const note = new Note({
             noteName,
-            noteType,
             noteImage: noteImage ? compressedBase64 : noteImage,
             noteDescription,
             noteUrl,
@@ -72,7 +71,7 @@ export const getNoteById = async (req, res) => {
 export const updateNote = async (req, res) => {
     try {
         const { id } = req.params;
-        const { noteName, noteType, noteImage, noteDescription, noteUrl, userId } = req.body;
+        const { noteName, noteImage, noteDescription, noteUrl, userId } = req.body;
 
         // Validate base64 image data if provided
         if (!noteImage || !noteImage.startsWith('data:image')) {
@@ -95,7 +94,6 @@ export const updateNote = async (req, res) => {
 
         const updatedData = {
             noteName,
-            noteType,
             noteImage: noteImage ? compressedBase64 : noteImage,
             noteDescription,
             noteUrl,

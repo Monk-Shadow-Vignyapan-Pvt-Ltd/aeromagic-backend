@@ -56,6 +56,7 @@ app.use("/api/v1/combos", routes.comboRoute);
 app.use("/api/v1/customers", routes.customerRoute);
 app.use("/api/v1/logos", routes.logoRoute);
 app.use("/api/v1/delhivery", routes.delhiveryRoute);
+app.use("/api/v1/tones", routes.toneRoute);
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);
