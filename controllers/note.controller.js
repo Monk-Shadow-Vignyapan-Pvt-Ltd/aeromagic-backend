@@ -121,3 +121,15 @@ export const deleteNote = async (req, res) => {
         res.status(500).json({ message: 'Failed to delete note', success: false });
     }
 };
+
+export const getNoteNames = async (req, res) => {
+    try {
+        const notes = await Note.find().select("noteName");
+        if (!notes) return res.status(404).json({ message: "Notes not found", success: false });
+        return res.status(200).json({ notes });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch notes', success: false });
+    }
+};
+

@@ -3,6 +3,10 @@ import mongoose from "mongoose";
 const toneSchema = new mongoose.Schema({
     toneName: { type: String, required: true },
     toneImage: { type: String, required: true },
+    notes:{
+      type: mongoose.Schema.Types.Mixed, 
+        required:false
+    },
     toneDescription: { type: String, required: true },
     rank:{
         type: String, // Store image as base64 or use a URL reference

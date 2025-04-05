@@ -3,7 +3,7 @@ import { Tone } from '../models/tone.model.js';
 // Add a new tone
 export const addTone = async (req, res) => {
     try {
-        let { toneName, toneImage, toneDescription, rank, userId } = req.body;
+        let { toneName, toneImage, toneDescription, rank,notes, userId } = req.body;
         
         // Validate base64 image data
         if (!toneImage || !toneImage.startsWith('data:image')) {
@@ -16,6 +16,7 @@ export const addTone = async (req, res) => {
             toneImage,
             toneDescription,
             rank,
+            notes,
             userId
         });
 
@@ -56,7 +57,7 @@ export const getToneById = async (req, res) => {
 export const updateTone = async (req, res) => {
     try {
         const { id } = req.params;
-        let { toneName, toneImage, toneDescription, rank, userId } = req.body;
+        let { toneName, toneImage, toneDescription, rank,notes, userId } = req.body;
 
         // Validate base64 image data
         if (!toneImage || !toneImage.startsWith('data:image')) {
@@ -67,6 +68,7 @@ export const updateTone = async (req, res) => {
             toneName,
             toneDescription,
             rank,
+            notes,
             userId,
             ...(toneImage && { toneImage }) // Only update image if new image is provided
         };

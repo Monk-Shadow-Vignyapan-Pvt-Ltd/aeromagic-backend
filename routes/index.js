@@ -25,6 +25,7 @@ import customerRoute from "./customer.route.js";
 import logoRoute from "./logo.route.js";
 import delhiveryRoute from "./delhivery.route.js";
 import toneRoute from "./tone.route.js";
+import occasionRoute from "./occasion.route.js";
 
 const routes = {
   categoryRoute,
@@ -53,7 +54,8 @@ const routes = {
   customerRoute,
   logoRoute,
   delhiveryRoute,
-  toneRoute
+  toneRoute,
+  occasionRoute
 };
 
 export default routes;

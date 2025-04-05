@@ -71,7 +71,7 @@ const productSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.Mixed, 
         required:false
     },
-    noteIds:{
+    occasions:{
       type: mongoose.Schema.Types.Mixed, 
         required:false
     },
