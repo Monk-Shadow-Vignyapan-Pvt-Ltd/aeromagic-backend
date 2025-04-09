@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import sharp from 'sharp';
 import { oauth2Client } from '../utils/googleClient.js';
+import axios from "axios";
 
 
 // Signup Controller
@@ -86,7 +87,7 @@ export const getCustomer = async (req, res) => {
     const customer = await Customer.findById(req.user);
 
     res.json({
-        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList,otherAddress:customer.otherAddress
+        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList,otherAddress:customer.otherAddress,authType:customer.authType
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -267,6 +268,25 @@ export const updateAddressList = async (req, res) => {
   }
 };
 
+export const updatePhoneNo = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { phoneNumber} = req.body;
+
+
+        const customer = await Customer.findByIdAndUpdate(
+            id,
+            { phoneNumber },
+            { new: true, runValidators: true }
+        );
+        if (!customer) return res.status(404).json({ message: "customer not found!", success: false });
+        return res.status(200).json({ customer, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(400).json({ message: error.message, success: false });
+    }
+};
+
 export const googleAuth = async (req, res) => {
   const code = req.query.code;
   try {
@@ -291,9 +311,7 @@ export const googleAuth = async (req, res) => {
       }
 
       const { _id } = customer;
-      const token = jwt.sign({ _id, email }, process.env.SECRET_KEY, {
-          expiresIn: process.env.JWT_TIMEOUT,
-      });
+      const token = jwt.sign({ id: customer._id }, "passwordKey");
 
       res.status(200).json({ message: 'success', token, customer });
 
