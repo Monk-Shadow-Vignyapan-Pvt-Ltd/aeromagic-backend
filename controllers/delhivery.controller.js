@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const BASE_URL = process.env.BASE_URL;
+const PIN_URL = process.env.PINCODE_URL;
 const API_KEY = process.env.DELHIVERY_API_KEY;
 const WAREHOUSE_ID = process.env.WAREHOUSE_ID;
 const PICKUP_PIN = process.env.PICKUP_PIN;
@@ -18,7 +19,7 @@ export const checkPincode = async (req, res) => {
         }
 
         const response = await axios.get(
-            `${BASE_URL}/c/api/pin-codes/json/?filter_codes=${pincode}`,
+            `${PIN_URL}/c/api/pin-codes/json/?filter_codes=${pincode}`,
             {
                 headers: { Authorization: `Token ${API_KEY}`,"Content-Type": "application/json", },
             }

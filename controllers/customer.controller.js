@@ -57,7 +57,7 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign({ id: customer._id }, "passwordKey");
-    res.json({ token, customer: { id: customer._id, fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber } });
+    res.json({ token, customer: customer });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -87,7 +87,7 @@ export const getCustomer = async (req, res) => {
     const customer = await Customer.findById(req.user);
 
     res.json({
-        fullname: customer.fullname,email:customer.email,phoneNumber:customer.phoneNumber,id: customer._id,wishList:customer.wishList,otherAddress:customer.otherAddress,authType:customer.authType
+        customer
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -222,51 +222,86 @@ export const getProductsByWishList = async (req, res) => {
 };
 
 export const updateAddressList = async (req, res) => {
-  try {
-      const { id } = req.params;
-      const { address } = req.body; // Address is an object
+    try {
+        const { id } = req.params;
+        const { address, addressIndex } = req.body; // index will be passed for edits
 
-      if (!address || typeof address !== "object") {
-          return res.status(400).json({ message: "Valid address object is required!", success: false });
-      }
+        if (!address || typeof address !== "object") {
+            return res.status(400).json({ message: "Valid address object is required!", success: false });
+        }
 
-      const customer = await Customer.findById(id);
-      if (!customer) {
-          return res.status(404).json({ message: "Customer not found!", success: false });
-      }
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found!", success: false });
+        }
 
-      if (!Array.isArray(customer.otherAddress)) {
-          customer.otherAddress = [];
-      }
+        if (!Array.isArray(customer.otherAddress)) {
+            customer.otherAddress = [];
+        }
 
-       // If the new address is marked as default, remove default from others
-       if (address.defaultAddress) {
-        customer.otherAddress = customer.otherAddress.map(addr => ({
-            ...addr,
-            defaultAddress: false
-        }));
+        // If editing and marked as default, remove default from others
+        if (address.defaultAddress) {
+            customer.otherAddress = customer.otherAddress.map(addr => ({
+                ...addr,
+                defaultAddress: false
+            }));
+        }
+
+        if (typeof addressIndex === "number") {
+            // Editing existing address
+            customer.otherAddress[addressIndex] = address;
+        } else {
+            // Adding a new one
+            const isDuplicate = customer.otherAddress.some(
+                (addr) => JSON.stringify(addr) === JSON.stringify(address)
+            );
+            if (!isDuplicate) {
+                customer.otherAddress.push(address);
+            }
+        }
+
+        await Customer.updateOne({ _id: id }, { $set: { otherAddress: customer.otherAddress } });
+
+        return res.status(200).json({
+            customer: { ...customer.toObject(), otherAddress: customer.otherAddress },
+            success: true
+        });
+    } catch (error) {
+        console.error("Error updating address list:", error);
+        res.status(500).json({ message: "Failed to update address list", success: false });
     }
-
-      // Check if the address already exists in the array
-      const isDuplicate = customer.otherAddress.some(
-          (addr) => JSON.stringify(addr) === JSON.stringify(address)
-      );
-
-      if (!isDuplicate) {
-          // Add the new address if it's not a duplicate
-          customer.otherAddress.push(address);
-          await Customer.updateOne({ _id: id }, { $set: { otherAddress: customer.otherAddress } });
-      }
-
-      return res.status(200).json({ 
-          customer: { ...customer.toObject(), otherAddress: customer.otherAddress },
-          success: true 
-      });
-  } catch (error) {
-      console.error("Error updating address list:", error);
-      res.status(500).json({ message: "Failed to update address list", success: false });
-  }
 };
+
+export const deleteAddress = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { addressIndex } = req.body;
+
+        const customer = await Customer.findById(id);
+        if (!customer) {
+            return res.status(404).json({ message: "Customer not found", success: false });
+        }
+
+        if (!Array.isArray(customer.otherAddress) || addressIndex < 0 || addressIndex >= customer.otherAddress.length) {
+            return res.status(400).json({ message: "Invalid address index", success: false });
+        }
+
+        customer.otherAddress.splice(addressIndex, 1);
+        customer.markModified('otherAddress'); // 👈 necessary when modifying arrays
+        await customer.save();
+
+        return res.status(200).json({ 
+            customer: customer.toObject(),
+            success: true,
+            message: "Address deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting address:", error);
+        return res.status(500).json({ message: "Failed to delete address", success: false });
+    }
+};
+
+
 
 export const updatePhoneNo = async (req, res) => {
     try {

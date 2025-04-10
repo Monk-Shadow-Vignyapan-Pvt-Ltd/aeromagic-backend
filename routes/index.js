@@ -26,6 +26,8 @@ import logoRoute from "./logo.route.js";
 import delhiveryRoute from "./delhivery.route.js";
 import toneRoute from "./tone.route.js";
 import occasionRoute from "./occasion.route.js";
+import delhiverySettingRoute from "./delhivery-setting.route.js";
+import couponRoute from "./coupon.route.js";
 
 const routes = {
   categoryRoute,
@@ -55,7 +57,9 @@ const routes = {
   logoRoute,
   delhiveryRoute,
   toneRoute,
-  occasionRoute
+  occasionRoute,
+  delhiverySettingRoute,
+  couponRoute
 };
 
 export default routes;

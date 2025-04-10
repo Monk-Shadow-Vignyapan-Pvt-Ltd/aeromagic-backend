@@ -11,6 +11,7 @@ export const addProduct = async (req, res) => {
             productImage, 
             imageAlt,
             gender,
+            weight,
             shortDescription, 
             longDescription,  
             categoryId, 
@@ -56,6 +57,7 @@ export const addProduct = async (req, res) => {
             productImage: productImage,
             imageAlt,
             gender,
+            weight,
             shortDescription,
             longDescription,
             productUrl,seoTitle,seoDescription,
@@ -167,7 +169,8 @@ export const updateProduct = async (req, res) => {
             productName, 
             productImage,
             imageAlt,
-            gender, 
+            gender,
+            weight, 
             shortDescription, 
             longDescription, 
             productUrl, seoTitle,seoDescription,
@@ -218,6 +221,7 @@ export const updateProduct = async (req, res) => {
             productImage,
             imageAlt,
             gender,
+            weight,
             shortDescription,
             longDescription,
             productUrl,oldUrls,seoTitle,seoDescription,
@@ -441,5 +445,16 @@ export const updateShowOnHomeProduct = async (req, res) => {
     } catch (error) {
         console.error("Error updating product:", error);
         res.status(400).json({ message: error.message, success: false });
+    }
+};
+
+export const getProductIds = async (req, res) => {
+    try {
+        const products = await Product.find().select("productName");
+        if (!products) return res.status(404).json({ message: "products not found", success: false });
+        return res.status(200).json({ products });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch products', success: false });
     }
 };
