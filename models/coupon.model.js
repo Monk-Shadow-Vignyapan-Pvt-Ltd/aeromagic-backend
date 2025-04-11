@@ -10,10 +10,14 @@ const couponSchema = new mongoose.Schema({
   value: { type: Number }, // for fixed/percent types
   minOrder: { type: Number, default: 0 },
   categoryIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
-  productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+  productIds: [{
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
+    variationPrice: { type: mongoose.Schema.Types.Mixed, default: null } // optional
+  }],
   usageLimit: { type: Number, default: 0 }, // 0 means unlimited
   usedCount: { type: Number, default: 0 },
   isActive: { type: Boolean, default: true },
+  showOnOfferBar: { type: Boolean, default: true },
   expiresAt: { type: Date },
   assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Customer' }],
 
@@ -21,14 +25,16 @@ const couponSchema = new mongoose.Schema({
   buy: {
     products: [{
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-      quantity: { type: Number, default: 1 }
+      quantity: { type: Number, default: 1 },
+      variationPrice: { type: mongoose.Schema.Types.Mixed, default: null }
     }]
   },
   get: {
     products: [{
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       quantity: { type: Number, default: 1 },
-      discountPercent: { type: Number, default: 100 } // 100 = free
+      discountPercent: { type: Number, default: 100 }, // 100 = free
+      variationPrice: { type: mongoose.Schema.Types.Mixed, default: null }
     }],
   }
 }, { timestamps: true });

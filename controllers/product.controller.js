@@ -450,7 +450,7 @@ export const updateShowOnHomeProduct = async (req, res) => {
 
 export const getProductIds = async (req, res) => {
     try {
-        const products = await Product.find().select("productName");
+        const products = await Product.find().select("productName categoryId hasVariations variationPrices");
         if (!products) return res.status(404).json({ message: "products not found", success: false });
         return res.status(200).json({ products });
     } catch (error) {

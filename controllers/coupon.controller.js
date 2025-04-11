@@ -5,7 +5,7 @@ export const addCoupon = async (req, res) => {
     try {
         const {
             code, type, value, minOrder,
-            productIds,categoryIds, usageLimit, isActive,
+            productIds,categoryIds, usageLimit, isActive,showOnOfferBar,
             expiresAt, assignedTo, buy, get
         } = req.body;
 
@@ -28,6 +28,7 @@ export const addCoupon = async (req, res) => {
             categoryIds,
             usageLimit,
             isActive,
+            showOnOfferBar,
             expiresAt,
             assignedTo, buy, get
         });
@@ -50,6 +51,24 @@ export const getCoupons = async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch coupons', success: false });
     }
 };
+
+export const getFilteredCoupons = async (req, res) => {
+    try {
+      const coupons = await Coupon.find({ isActive: true, showOnOfferBar: true })
+        .populate('categoryIds', 'categoryName') // direct array of ObjectIds
+        .populate('productIds.productId', 'productName') // array of subdocs
+        .populate('buy.products.productId', 'productName')
+        .populate('get.products.productId', 'productName')
+        .lean(); // Optional: improves performance
+  
+      res.status(200).json({ coupons, success: true });
+    } catch (error) {
+      console.error('Error fetching coupons:', error.message);
+      res.status(500).json({ message: 'Failed to fetch coupons', success: false });
+    }
+  };
+  
+
 
 // Get single coupon by ID
 export const getCouponById = async (req, res) => {

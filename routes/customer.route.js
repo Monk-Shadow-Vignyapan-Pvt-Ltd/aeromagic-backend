@@ -1,6 +1,6 @@
 import express from "express";
 import {auth} from "../middleware/auth.js"
-import { register, login, tokenIsValid, getCustomer,getCustomers,resetPassword,deleteCustomer,updateWishList,getProductsByWishList,updateAddressList,deleteAddress,updatePhoneNo,googleAuth} from "../controllers/customer.controller.js";
+import { register, login, tokenIsValid, getCustomer,getCustomers,resetPassword,deleteCustomer,updateWishList,getProductsByWishList,updateAddressList,deleteAddress,updatePhoneNo,googleAuth,createCashfreeOrder} from "../controllers/customer.controller.js";
 
 const router = express.Router();
 
@@ -17,5 +17,6 @@ router.route("/updateAddressList/:id").post( updateAddressList);
 router.route("/deleteAddress/:id").post( deleteAddress);
 router.route("/updatePhoneNo/:id").post( updatePhoneNo);
 router.route("/googleAuth").get(googleAuth);
+router.route("/createCashfreeOrder").post( createCashfreeOrder);
 
 export default router;

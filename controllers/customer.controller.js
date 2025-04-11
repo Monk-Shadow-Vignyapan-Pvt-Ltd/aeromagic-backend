@@ -360,6 +360,42 @@ export const googleAuth = async (req, res) => {
 };
 
 
+export const createCashfreeOrder = async (req, res) => {
+  const { orderId, amount, email, phoneNumber, fullname } = req.body;
+
+  try {
+    const response = await axios.post(
+      'https://sandbox.cashfree.com/pg/orders', // use prod URL for production
+      {
+        order_id: orderId,
+        order_amount: amount,
+        order_currency: 'INR',
+        customer_details: {
+          customer_id: phoneNumber,
+          customer_email: email,
+          customer_phone: phoneNumber,
+          customer_name: fullname,
+        }
+      },
+      {
+        headers: {
+          'x-api-version': '2022-09-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    res.json({ success: true, paymentSessionId: response.data.payment_session_id });
+  } catch (error) {
+    console.error('Cashfree Order Error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to create order' });
+  }
+};
+
+
+
 
 
 
