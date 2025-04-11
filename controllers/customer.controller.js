@@ -371,9 +371,9 @@ export const createCashfreeOrder = async (req, res) => {
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: phoneNumber,
+          customer_id: "testuser123",
           customer_email: email,
-          customer_phone: phoneNumber,
+          customer_phone: phoneNumber.toString(),
           customer_name: fullname,
         }
       },
