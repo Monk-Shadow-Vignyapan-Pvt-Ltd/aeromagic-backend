@@ -28,6 +28,7 @@ import toneRoute from "./tone.route.js";
 import occasionRoute from "./occasion.route.js";
 import delhiverySettingRoute from "./delhivery-setting.route.js";
 import couponRoute from "./coupon.route.js";
+import orderRoute from "./order.route.js";
 
 const routes = {
   categoryRoute,
@@ -59,7 +60,8 @@ const routes = {
   toneRoute,
   occasionRoute,
   delhiverySettingRoute,
-  couponRoute
+  couponRoute,
+  orderRoute
 };
 
 export default routes;
