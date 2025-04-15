@@ -115,10 +115,14 @@ export const deleteCoupon = async (req, res) => {
 // Validate a coupon code (use in frontend checkout)
 export const validateCoupon = async (req, res) => {
     try {
-        const { code, customerId, cartTotal, productIds } = req.body;
+        const { code, customerId, cartTotal, productIds,cartItems } = req.body;
 
-        const coupon = await Coupon.findOne({ code, isActive: true });
+        const coupon = await Coupon.findOne({ code, isActive: true }).populate('get.products.productId')
+        .lean();;
         if (!coupon) return res.status(404).json({ message: 'Invalid or expired coupon', success: false });
+
+        let validItems = cartItems;
+        let validMessage = 'Coupon applied successfully';
 
         // Check expiration
         if (coupon.expiresAt && new Date() > coupon.expiresAt) {
@@ -139,21 +143,102 @@ export const validateCoupon = async (req, res) => {
         if (cartTotal < coupon.minOrder) {
             return res.status(400).json({ message: `Minimum order value is ₹${coupon.minOrder}`, success: false });
         }
+        
+        if (coupon.categoryIds?.length) {
+            const allowedCategoryIds = coupon.categoryIds.map(id => id.toString());
 
-        // Optional: Check if applicable to products
-        if (coupon.productIds?.length) {
-            const intersect = productIds?.filter(p => coupon.productIds.map(id => id.toString()).includes(p));
-            if (!intersect?.length) {
-                return res.status(400).json({ message: 'Coupon not valid for selected products', success: false });
+            // Get valid & invalid category items
+            const validCategoryItems = cartItems.filter(item =>
+                allowedCategoryIds.includes(item.categoryId?.toString())
+            );
+            const invalidItems = cartItems.filter(item =>
+                !allowedCategoryIds.includes(item.categoryId?.toString())
+            );
+
+            // Check subtotal of valid items only
+            const validSubtotal = validCategoryItems.reduce((acc, item) => {
+                const price = item.finalSellingPrice ?? item.price; // fallback in case finalSellingPrice not available
+                return acc + price * item.quantity;
+            }, 0);
+
+            if (validCategoryItems.length === 0) {
+                const invalidNames = invalidItems.map(p => p.name).join(', ');
+                return res.status(400).json({
+                    message: `Coupon not valid for these products: ${invalidNames}. Please remove them to apply the coupon.`,
+                    success: false
+                });
             }
+
+            if (validSubtotal < coupon.minOrder) {
+                return res.status(400).json({
+                    message: `Eligible products total ₹${validSubtotal.toFixed(2)} does not meet the minimum order value of ₹${coupon.minOrder}`,
+                    success: false
+                });
+            }
+
+            validItems = validCategoryItems;
+
+            // Notify if some products were excluded
+            if (invalidItems.length) {
+                const includedNames = validCategoryItems.map(p => p.name).join(', ');
+                validMessage = `Coupon ${code} Applied Successfully`;
+            }
+        }
+
+        // Optional productIds check
+        if (coupon.productIds?.length) {
+            
+            const allowedProducts = coupon.productIds.map(p => ({
+                productId: p.productId?.toString(),
+                variationId: p.variationPrice?.id ?? null
+              }));
+              
+              const filteredItems = validItems.filter(item => {
+                const itemProductId = item.id?.toString();
+                const itemHasVariation = item.hasVariations;
+              
+                return allowedProducts.some(p => {
+                  if (itemHasVariation && p.variationId !== null) {
+                    const [productId, variationIndex] = itemProductId.split('_');
+                    return p.productId === productId && (p.variationId === (parseFloat(variationIndex) + 1));
+                  }
+                  return p.productId === itemProductId;
+                });
+              });
+            
+            if (!filteredItems.length) {
+                return res.status(400).json({
+                    message: 'Coupon not valid for selected products',
+                    success: false
+                });
+            }
+
+            const validSubtotal = filteredItems.reduce((acc, item) => {
+                const price = item.finalSellingPrice ?? item.price; // fallback in case finalSellingPrice not available
+                return acc + price * item.quantity;
+            }, 0);
+
+            if (validSubtotal < coupon.minOrder) {
+                return res.status(400).json({
+                    message: `Eligible products total ₹${validSubtotal.toFixed(2)} does not meet the minimum order value of ₹${coupon.minOrder}`,
+                    success: false
+                });
+            }
+
+            validItems = filteredItems;
+            validMessage = `Coupon ${code} Applied Successfully`;
         }
 
         if (coupon.type === 'buy_x_get_y') {
             const buy = coupon.buy?.products || [];
-            const cartMap = new Map(cartItems.map(item => [item.productId, item.quantity]));
+            const cartMap = new Map(cartItems.map(item => [item.id, item.quantity]));
 
             const allBuyConditionsMet = buy.every(buyItem => {
-                const qtyInCart = cartMap.get(buyItem.productId.toString()) || 0;
+                const key = buyItem.variationPrice
+                    ? `${buyItem.productId}_${buyItem.variationPrice.id - 1}`
+                    : buyItem.productId;
+        
+                const qtyInCart = cartMap.get(key) || 0;
                 return qtyInCart >= buyItem.quantity;
             });
 
@@ -165,21 +250,52 @@ export const validateCoupon = async (req, res) => {
             }
 
             // Prepare the "get" response
-            const getItems = (coupon.get?.products || []).map(g => ({
-                productId: g.productId,
-                quantity: g.quantity,
-                discountPercent: g.discountPercent || 100
-            }));
+            const getItems = (coupon.get?.products || []).map(g => {
+                const product = g.productId; // Already populated
+            
+                if (!product) return null;
+            
+                let variation = null;
+            
+                if (g.variationPrice?.id != null && Array.isArray(product.variationPrices)) {
+                    variation = product.variationPrices.find(v => v.id === g.variationPrice.id);
+                }
+
+                const variationIndex = product.hasVariations
+                    ? product.variationPrices.findIndex(
+                        (v) => v.id === variation.id // or compare by size/color etc.
+                        )
+                    : null;
+            
+                return {
+                    id: product.hasVariations ? `${product._id}_${variationIndex}`:product._id,
+                    img: product.productImage,
+                    name: product.hasVariations ? `${product.productName} - ${variation.value}` :product.productName,
+                    hasVariations: product.hasVariations,
+                    categoryId:product.categoryId,
+                    variationIndex ,
+                    price: product.hasVariations ? variation.price : product.price,
+                    discount: g.discountPercent,
+                    finalSellingPrice: product.hasVariations ? (variation.price -(variation.price * (g.discountPercent / 100))) : (product.price -(product.price * (g.discountPercent / 100))),
+                    discountType: "Percentage",
+                    reviews: product.reviews,
+                    rating: product.rating,
+                    productUrl: product.productUrl,
+                    quantity:g.quantity,
+                    isFreeItem: true
+                };
+            });
 
             return res.status(200).json({ 
                 coupon, 
                 type: 'buy_x_get_y',
                 getItems,
+                message:`Coupon ${code} Applied Successfully`,
                 success: true 
             });
         }
 
-        res.status(200).json({ coupon, success: true });
+        res.status(200).json({ coupon,message:validMessage, success: true });
     } catch (error) {
         console.error('Error validating coupon:', error);
         res.status(500).json({ message: 'Coupon validation failed', success: false });
