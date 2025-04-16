@@ -11,7 +11,7 @@ const productSchema = new mongoose.Schema({
         required: false,
     },
     gender: { type: String, required: true },
-    weight: { type: Number, required: true },
+    weight: { type: Number, required: false },
     shortDescription: { type: String, required: true },
     longDescription: { type: String, required: false },
     categoryId: {

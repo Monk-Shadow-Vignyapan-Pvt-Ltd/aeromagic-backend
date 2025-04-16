@@ -1,15 +1,34 @@
 import { Order } from '../models/order.model.js'; // Adjust the path as necessary
+import moment from 'moment';
 
 // Add a new order
 export const addOrder = async (req, res) => {
     try {
-        const { customerId,orderType, cartItems, status } = req.body;
+        const { customerId,orderType, cartItems, status ,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal } = req.body;
+
+        const now = new Date();
+        const formattedDate = moment(now).format('DD-MM-YYYY');
+        const prefix = 'AM';
+
+        // Count how many orders exist for today
+        const dateStart = moment().startOf('day').toDate();
+        const dateEnd = moment().endOf('day').toDate();
+
+        const todayOrders = await Order.find({
+            createdAt: { $gte: dateStart, $lte: dateEnd },
+            orderId: { $regex: `^${prefix}-${formattedDate}-` }
+        });
+
+        const orderNumber = String(todayOrders.length + 1).padStart(4, '0');
+        const orderId = `${prefix}-${formattedDate}-${orderNumber}`;
 
         const order = new Order({
             customerId,
             orderType,
             cartItems,
-            status
+            status,
+            orderId,
+            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal 
         });
 
         await order.save();
@@ -23,16 +42,69 @@ export const addOrder = async (req, res) => {
 // Get all orders
 export const getOrders = async (req, res) => {
     try {
-        const orders = await Order.find().populate("customerId");
-        if (!orders ) {
-            return res.status(404).json({ message: "Orders not found", success: false });
+        const { status = "All", startDate, endDate, page = 1, limit = 12, search = "" } = req.query;
+
+        const filter = {};
+
+        // Filter by status
+        if (status !== "All") {
+            filter.status = status;
         }
-        res.status(200).json({ orders, success: true });
+
+        // Filter by date range
+        if (startDate && endDate) {
+            filter.createdAt = {
+                $gte: new Date(startDate),
+                $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+            };
+        }
+
+        // Search filter (case-insensitive)
+        // if (search.trim() !== "") {
+        //     const regex = new RegExp(search, "i");
+        //     filter.$or = [
+        //         { orderId: regex },
+        //         { "cartItems.productName": regex }, // assumes `productName` in `cartItems`
+        //     ];
+        // }
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const totalOrders = await Order.countDocuments(filter);
+        const orders = await Order.find(filter)
+            .populate("customerId")
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        // If you want to search by customer name (populated), you need aggregation
+        if (search && orders.length > 0) {
+            const lowerSearch = search.toLowerCase();
+            const filteredByCustomer = orders.filter(order =>
+                order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
+            );
+           
+
+            return res.status(200).json({
+                orders: filteredByCustomer,
+                totalPages: Math.ceil(filteredByCustomer.length / limit),
+                currentPage: parseInt(page),
+                success: true
+            });
+        }
+
+        res.status(200).json({
+            orders,
+            totalPages: Math.ceil(totalOrders / limit),
+            currentPage: parseInt(page),
+            success: true
+        });
     } catch (error) {
-        console.error('Error fetching orders:', error);
-        res.status(500).json({ message: 'Failed to fetch orders', success: false });
+        console.error("Error fetching orders:", error);
+        res.status(500).json({ message: "Failed to fetch orders", success: false });
     }
 };
+
 
 // Get order by ID
 export const getOrderById = async (req, res) => {
@@ -53,13 +125,14 @@ export const getOrderById = async (req, res) => {
 export const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const { customerId,orderType, cartItems, status } = req.body;
+        const { customerId,orderType, cartItems, status,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal  } = req.body;
 
         const updatedData = {
             customerId,
             orderType,
             cartItems,
-            status
+            status,
+            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal 
         };
 
         const order = await Order.findByIdAndUpdate(id, updatedData, {

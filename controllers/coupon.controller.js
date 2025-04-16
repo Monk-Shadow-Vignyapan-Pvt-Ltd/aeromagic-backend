@@ -271,6 +271,7 @@ export const validateCoupon = async (req, res) => {
                     id: product.hasVariations ? `${product._id}_${variationIndex}`:product._id,
                     img: product.productImage,
                     name: product.hasVariations ? `${product.productName} - ${variation.value}` :product.productName,
+                    weight: product.hasVariations ? variation.weight : product.weight,
                     hasVariations: product.hasVariations,
                     categoryId:product.categoryId,
                     variationIndex ,

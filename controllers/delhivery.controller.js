@@ -42,20 +42,20 @@ export const createShipment = async (req, res) => {
         }
 
         const response = await axios.post(
-            `${BASE_URL}/api/cmu/create.json`,
+            `${PIN_URL}/api/cmu/create.json`,
             {
                 shipments: [
                     {
                         ...shipmentData,
-                        pickup_location: {
-                            pin: PICKUP_PIN,
-                            name: "Your Store Name",
-                            phone: "Your Phone Number",
-                            address: "Your Store Address",
-                        },
+                        
                     },
                 ],
-                pickup_location_id: WAREHOUSE_ID,
+                pickup_location: {
+                    pin: PICKUP_PIN,
+                    name: "Your Store Name",
+                    phone: "Your Phone Number",
+                    address: "Your Store Address",
+                },
             },
             {
                 headers: { Authorization: `Token ${API_KEY}` },
