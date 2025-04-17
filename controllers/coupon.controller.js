@@ -236,8 +236,7 @@ export const validateCoupon = async (req, res) => {
             const allBuyConditionsMet = buy.every(buyItem => {
                 const key = buyItem.variationPrice
                     ? `${buyItem.productId}_${buyItem.variationPrice.id - 1}`
-                    : buyItem.productId;
-        
+                    : buyItem.productId.toString();
                 const qtyInCart = cartMap.get(key) || 0;
                 return qtyInCart >= buyItem.quantity;
             });

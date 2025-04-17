@@ -1,5 +1,6 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import qs from 'qs';
 
 dotenv.config();
 
@@ -35,39 +36,48 @@ export const checkPincode = async (req, res) => {
 // Create a Shipment Order
 export const createShipment = async (req, res) => {
     try {
-        const { shipmentData } = req.body;
-
-        if (!shipmentData) {
-            return res.status(400).json({ message: 'Shipment data is required', success: false });
+      const { shipmentData } = req.body;
+  
+      if (!shipmentData) {
+        return res.status(400).json({ message: 'Shipment data is required', success: false });
+      }
+  
+      const payload = {
+        format: "json",
+        data: JSON.stringify({
+          shipments: [ shipmentData ],
+          pickup_location: {
+            pin_code: PICKUP_PIN,
+          name: "AROMAGIC WAREHOUSE",
+          phone: "9909407385",
+          add: "AMRELIWALA SHOPPING CENTRE, MATAWAFDI CIRCLE, LH ROAD.",
+          city: "Surat",
+          country: "India",
+          }
+        })
+      };
+  
+      const response = await axios.post(
+        `${PIN_URL}/api/cmu/create.json`,
+        qs.stringify(payload), // send as x-www-form-urlencoded
+        {
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `Token ${API_KEY}`,
+            "Accept": "application/json"
+          }
         }
-
-        const response = await axios.post(
-            `${PIN_URL}/api/cmu/create.json`,
-            {
-                shipments: [
-                    {
-                        ...shipmentData,
-                        
-                    },
-                ],
-                pickup_location: {
-                    pin: PICKUP_PIN,
-                    name: "Your Store Name",
-                    phone: "Your Phone Number",
-                    address: "Your Store Address",
-                },
-            },
-            {
-                headers: { Authorization: `Token ${API_KEY}` },
-            }
-        );
-
-        return res.status(201).json({ data: response.data, success: true });
+      );
+  
+      return res.status(201).json({ data: response.data, success: true });
+  
     } catch (error) {
-        console.error('Error creating shipment:', error);
-        res.status(500).json({ message: 'Failed to create shipment', success: false });
+      console.error("Error creating shipment:", error?.response?.data || error.message);
+      res.status(500).json({ message: "Failed to create shipment", success: false });
     }
-};
+  };
+
+  
 
 // Track Shipment Status
 export const trackShipment = async (req, res) => {
