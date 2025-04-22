@@ -2,7 +2,7 @@ import { DelhiverySetting } from "../models/delhivery-setting.model.js";
 
 export const upsertDelhiverySetting = async (req, res) => {
     try {
-        const { priceAboveFree, priceRangeFlat, boxSizes } = req.body;
+        const { priceAboveFree, priceRangeFlat,maximumOrderQty, boxSizes } = req.body;
 
         if (priceAboveFree === undefined) {
             return res.status(400).json({ message: 'priceAboveFree is required', success: false });
@@ -10,7 +10,7 @@ export const upsertDelhiverySetting = async (req, res) => {
 
         const updatedDelhiverySetting = await DelhiverySetting.findByIdAndUpdate(
             'singleton',
-            { priceAboveFree, priceRangeFlat, boxSizes },
+            { priceAboveFree, priceRangeFlat,maximumOrderQty, boxSizes },
             { new: true, upsert: true, runValidators: true }
         );
 

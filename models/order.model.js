@@ -48,6 +48,30 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
+    giftPacking:{
+        type: Boolean,
+        required: false
+    },
+    removePriceFromInvoice:{
+        type: Boolean,
+        required: false
+    },
+    addGiftMessage:{
+        type: Boolean,
+        required: false
+    },
+    giftMessage:{
+        type: String,
+        required: false
+    },
+    selloShipOrderId:{
+        type: String,
+        required: false
+    },
+    selloShipAWB:{
+        type: String,
+        required: false
+    }
 }, { timestamps: true });
 
 export const Order = mongoose.model("Order", orderSchema);

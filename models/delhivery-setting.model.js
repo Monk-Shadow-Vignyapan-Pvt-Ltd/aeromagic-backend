@@ -10,6 +10,10 @@ const delhiverySettingSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed,
         required: false
     },
+    maximumOrderQty:{
+        type:Number,
+        required:true,
+     },
     boxSizes:{
         type: mongoose.Schema.Types.Mixed,
         required: false

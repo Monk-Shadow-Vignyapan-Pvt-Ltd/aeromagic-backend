@@ -2,6 +2,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import qs from 'qs';
 import FormData from 'form-data';
+import { Order } from '../models/order.model.js'; 
 
 dotenv.config();
 
@@ -119,11 +120,31 @@ export const checkPincode = async (req, res) => {
 export const createShipment = async (req, res) => {
   try {
       const { shipmentData } = req.body;
+
+      const loginForm = new FormData();
+    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+    const loginResponse = await axios.post(
+      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+      loginForm,
+      {
+        headers: {
+          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+          ...loginForm.getHeaders(),
+        },
+      }
+    );
+
+    // Optional: You can inspect `loginResponse.data` if you need a token or validation check
+    if (loginResponse.data.success !== "1") {
+      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    }
       
       // Prepare FormData for Selloship API
       const form = new FormData();
-      form.append("vendor_id", "16793");
-      form.append("device_from", "4");
+      form.append("vendor_id", loginResponse.data.vendor_id);
+      form.append("device_from", loginResponse.data.device_from);
       form.append("product_name", shipmentData.products_desc);
       form.append("price", shipmentData.total_amount);
       form.append("old_price", shipmentData.total_amount);
@@ -141,14 +162,60 @@ export const createShipment = async (req, res) => {
       form.append("custom_order_id", shipmentData.order);
 
       // Make the POST request to Selloship API
-      const response = await axios.post('https://selloship.com/web_api/Create_order', form, {
+      const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
           headers: {
-              Authorization: API_KEY,
+              Authorization: loginResponse.data.access_token,
               ...form.getHeaders(),
           },
       });
 
-      res.status(200).json({ success: true, data: response.data });
+      const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
+
+      if (!selloShipOrderId) {
+        return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
+      }
+  
+      // ✅ AWB Generation Step
+      const awbForm = new FormData();
+      awbForm.append("vendor_id", loginResponse.data.vendor_id);
+      awbForm.append("device_from", loginResponse.data.device_from);
+      awbForm.append("order_id", selloShipOrderId);
+      awbForm.append("ship_weight", shipmentData.weight);
+  
+      const awbResponse = await axios.post(
+        'https://selloship.com/api/lock_actvs/awb_generate',
+        awbForm,
+        {
+          headers: {
+            Authorization: loginResponse.data.access_token,
+            ...awbForm.getHeaders(),
+          },
+        }
+      );
+
+      const selloShipAWB = awbResponse.data?.awb;
+  
+      if (selloShipAWB) {
+        const updatedOrder = await Order.findOneAndUpdate(
+          { orderId: shipmentData.order }, // Assuming orderId is unique
+          {
+            selloShipOrderId,
+            selloShipAWB,
+            status: 'Processing', // Update the order status
+          },
+          { new: true } // Return the updated order
+        );
+  
+        return res.status(200).json({
+          success: true,
+          message: 'Shipment and AWB generated successfully',
+          orderResponse: createOrderResponse.data,
+          awbResponse: awbResponse.data,
+          updatedOrder, // Return the updated order details
+        });
+      } else {
+        return res.status(400).json({ success: false, message: 'Failed to generate AWB',data: awbResponse.data });
+      }
   } catch (error) {
       console.error('Selloship order error:', error?.response?.data || error.message);
       res.status(500).json({ success: false, message: 'Selloship order failed', error: error?.response?.data || error.message });

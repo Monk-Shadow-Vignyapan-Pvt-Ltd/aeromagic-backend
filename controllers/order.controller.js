@@ -4,7 +4,7 @@ import moment from 'moment';
 // Add a new order
 export const addOrder = async (req, res) => {
     try {
-        const { customerId,orderType, cartItems, status ,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal } = req.body;
+        const { customerId,orderType, cartItems, status ,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage} = req.body;
 
         const now = new Date();
         const formattedDate = moment(now).format('DD-MM-YYYY');
@@ -28,7 +28,7 @@ export const addOrder = async (req, res) => {
             cartItems,
             status,
             orderId,
-            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal 
+            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal ,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage
         });
 
         await order.save();
@@ -125,14 +125,14 @@ export const getOrderById = async (req, res) => {
 export const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const { customerId,orderType, cartItems, status,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal  } = req.body;
+        const { customerId,orderType, cartItems, status,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage } = req.body;
 
         const updatedData = {
             customerId,
             orderType,
             cartItems,
             status,
-            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal 
+            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal ,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage
         };
 
         const order = await Order.findByIdAndUpdate(id, updatedData, {
