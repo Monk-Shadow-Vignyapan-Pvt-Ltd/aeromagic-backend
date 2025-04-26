@@ -27,6 +27,7 @@ export const addProduct = async (req, res) => {
             variationPrices,
             uspIds,
             occasions,
+            tone,
             caution, 
             userId,
             productUrl,seoTitle,seoDescription, 
@@ -74,6 +75,7 @@ export const addProduct = async (req, res) => {
             variationPrices,
             uspIds,
             occasions,
+            tone,
             caution,
             userId,
         });
@@ -187,6 +189,7 @@ export const updateProduct = async (req, res) => {
             variationPrices,
             uspIds,
             occasions,
+            tone,
             caution, 
             userId 
         } = req.body;
@@ -238,6 +241,7 @@ export const updateProduct = async (req, res) => {
             variationPrices,
             uspIds,
             occasions,
+            tone,
             caution,
             userId,
         };

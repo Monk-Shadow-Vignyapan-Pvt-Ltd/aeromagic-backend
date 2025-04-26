@@ -61,6 +61,7 @@ app.use("/api/v1/occasions", routes.occasionRoute);
 app.use("/api/v1/delhivery-setting", routes.delhiverySettingRoute);
 app.use("/api/v1/coupons", routes.couponRoute);
 app.use("/api/v1/orders", routes.orderRoute);
+app.use("/api/v1/offerBanners", routes.offerBannerRoute);
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);

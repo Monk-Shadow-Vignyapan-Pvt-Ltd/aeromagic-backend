@@ -136,6 +136,9 @@ export const createShipment = async (req, res) => {
       }
     );
 
+    // console.log(loginResponse);
+
+
     // Optional: You can inspect `loginResponse.data` if you need a token or validation check
     if (loginResponse.data.success !== "1") {
       return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
@@ -162,38 +165,135 @@ export const createShipment = async (req, res) => {
       form.append("custom_order_id", shipmentData.order);
 
       // Make the POST request to Selloship API
-      const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
-          headers: {
-              Authorization: loginResponse.data.access_token,
-              ...form.getHeaders(),
-          },
-      });
+      // const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
+      //     headers: {
+      //         Authorization: loginResponse.data.access_token,
+      //         ...form.getHeaders(),
+      //     },
+      // });
 
-      const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
+      // const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
 
-      if (!selloShipOrderId) {
-        return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
-      }
+      // if (!selloShipOrderId) {
+      //   return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
+      // }
   
       // ✅ AWB Generation Step
-      const awbForm = new FormData();
-      awbForm.append("vendor_id", loginResponse.data.vendor_id);
-      awbForm.append("device_from", loginResponse.data.device_from);
-      awbForm.append("order_id", selloShipOrderId);
-      awbForm.append("ship_weight", shipmentData.weight);
+      // const awbForm = new FormData();
+      // awbForm.append("vendor_id", loginResponse.data.vendor_id);
+      // awbForm.append("device_from", loginResponse.data.device_from);
+      // awbForm.append("order_id", selloShipOrderId);
+      // awbForm.append("ship_weight", shipmentData.weight);
+      // awbForm.append("pickup_address_id","");
   
+      // const awbResponse = await axios.post(
+      //   'https://selloship.com/api/lock_actvs/awb_generate',
+      //   awbForm,
+      //   {
+      //     headers: {
+      //       Authorization: loginResponse.data.access_token,
+      //       ...awbForm.getHeaders(),
+      //     },
+      //   }
+      // );
+
+      const awbPayload = {
+        serviceType: "Surface",
+        Shipment: {
+          code: shipmentData.order,
+          orderCode: "25646397",
+          weight: shipmentData.weight.toFixed(2), // e.g., "500.00"
+          length: shipmentData.shipment_length *10,
+          height: shipmentData.shipment_height * 10,
+          breadth: shipmentData.shipment_width *10,
+          items: [
+            {
+              name: shipmentData.products_desc,
+              skuCode: shipmentData.order || "SKU-DEFAULT",
+              description: shipmentData.products_desc,
+              quantity: shipmentData.quantity,
+              itemPrice: shipmentData.total_amount,
+              brand: "",
+              color: "",
+              category: "",
+              size: "",
+              item_details: "",
+              ean: "",
+              imageURL: "",
+              hsnCode: "",
+              tags: ""
+            }
+          ]
+        },
+        deliveryAddressId: "",
+        deliveryAddressDetails: {
+          name: shipmentData.name,
+          email: shipmentData.email || "temp@selloship.com",
+          phone: shipmentData.phone,
+          address1: shipmentData.add,
+          address2: shipmentData.add2 || shipmentData.add,
+          pincode: shipmentData.pin,
+          city: shipmentData.city,
+          state: shipmentData.state,
+          country: "India",
+          stateCode: shipmentData.stateCode || "",
+          countryCode: "IN",
+          gstin: "",
+          alternatePhone: shipmentData.alternatePhone
+        },
+        pickupAddressId: "",
+        pickupAddressDetails: {
+          name: "Aromagic Warehouse",
+          email: "support@aromagic.in", // placeholder, replace if needed
+          phone: "7069494270",
+          address1: "Amreliwala Shopping Center, Matawadi Circle, Lambe Hanuman Rd",
+          address2: "Lambe Hanuman Road, Surat",
+          pincode: "395006",
+          city: "Surat",
+          state: "GUJARAT",
+          country: "India",
+          stateCode: "GJ",
+          countryCode: "IN",
+          gstin: ""
+        },
+        returnAddressId: "",
+        returnAddressDetails: {
+          name: "Aromagic Warehouse",
+          email: "support@aromagic.in", // placeholder, replace if needed
+          phone: "7069494270",
+          address1: "Amreliwala Shopping Center, Matawadi Circle, Lambe Hanuman Rd",
+          address2: "Lambe Hanuman Road, Surat",
+          pincode: "395006",
+          city: "Surat",
+          state: "GUJARAT",
+          country: "India",
+          stateCode: "GJ",
+          countryCode: "IN",
+          gstin: ""
+        },
+        currencyCode: "INR",
+        paymentMode: shipmentData.payment_mode, // e.g., "COD"
+        totalAmount: shipmentData.total_amount.toString(),
+        collectableAmount: shipmentData.payment_mode === "COD" ? shipmentData.total_amount.toString() : "0",
+        courierName: ""
+      };
+
+      console.log(awbPayload)
+
       const awbResponse = await axios.post(
-        'https://selloship.com/api/lock_actvs/awb_generate',
-        awbForm,
+        "https://selloship.com/api/lock_actvs/channels/waybill",
+        awbPayload,
         {
           headers: {
-            Authorization: loginResponse.data.access_token,
-            ...awbForm.getHeaders(),
+            Authorization: `token 67e533fe3032b174307430249942`,
+            "Content-Type": "application/json",
           },
         }
       );
 
-      const selloShipAWB = awbResponse.data?.awb;
+      //console.log(awbResponse)
+      
+      const selloShipAWB = awbResponse.data?.awb || awbResponse.data?.AWB; 
   
       if (selloShipAWB) {
         const updatedOrder = await Order.findOneAndUpdate(

@@ -98,11 +98,17 @@ export const deleteTone = async (req, res) => {
 // Update tone rank
 export const updateToneRank = async (req, res) => {
     try {
-        const { id, direction } = req.body; // direction: 'up' or 'down'
+        const { id, direction,newRank } = req.body; // direction: 'up' or 'down'
 
         const tone = await Tone.findById(id);
         if (!tone) {
             return res.status(404).json({ message: 'Tone not found', success: false });
+        }
+
+        if (direction === 'set') {
+            tone.rank = newRank;
+            await tone.save();
+            return res.status(200).json({ message: 'Rank set successfully', success: true });
         }
 
         let targetRank = direction === 'up' ? Number(tone.rank) - 1 : Number(tone.rank) + 1;

@@ -93,11 +93,17 @@ export const deleteOccasion = async (req, res) => {
 // Update occasion rank (move up or down)
 export const updateOccasionRank = async (req, res) => {
     try {
-        const { id, direction } = req.body;
+        const { id, direction,newRank } = req.body;
 
         const occasion = await Occasion.findById(id);
         if (!occasion) {
             return res.status(404).json({ message: 'Occasion not found', success: false });
+        }
+
+        if (direction === 'set') {
+            occasion.rank = newRank;
+            await occasion.save();
+            return res.status(200).json({ message: 'Rank set successfully', success: true });
         }
 
         let targetRank = direction === 'up' ? Number(occasion.rank) - 1 : Number(occasion.rank) + 1;

@@ -76,6 +76,10 @@ const productSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.Mixed, 
         required:false
     },
+    tone:{
+      type: mongoose.Schema.Types.Mixed, 
+        required:false
+    },
     caution:{
       type: String,
       required: false,

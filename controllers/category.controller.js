@@ -112,12 +112,19 @@ export const deleteCategory = async (req, res) => {
 
 export const updateCategoryRank = async (req, res) => {
     try {
-        const { id, direction } = req.body; // direction: 'up' or 'down'
+        const { id, direction,newRank } = req.body; // direction: 'up' or 'down'
 
         const category = await Category.findById(id);
         if (!category) {
             return res.status(404).json({ message: 'Category not found', success: false });
         }
+
+        if (direction === 'set') {
+            category.rank = newRank;
+            await category.save();
+            return res.status(200).json({ message: 'Rank set successfully', success: true });
+        }
+
 
         // Determine the target rank for the move
         let targetRank;
