@@ -316,8 +316,17 @@ export const getProductsForHome = async (req, res) => {
 
 export const getProductsByCategory = async (req, res) => {
     try {
-        const { id } = req.params;
+        let { id } = req.params;
         const { brand, ingredient, availability, price, size, gender, rating, page = 1,sortOption } = req.query;
+
+        if (!id || id === "undefined") {
+            const firstCategory = await Category.findOne().sort({ createdAt: 1 });
+            if (!firstCategory) {
+                return res.status(404).json({ message: "No categories found", success: false });
+            }
+            id = firstCategory._id.toString();
+        }
+
 
         let filter = { };
 
