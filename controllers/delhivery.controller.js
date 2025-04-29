@@ -143,6 +143,8 @@ export const createShipment = async (req, res) => {
     if (loginResponse.data.success !== "1") {
       return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
     }
+
+    //console.log(loginResponse)
       
       // Prepare FormData for Selloship API
       const form = new FormData();
@@ -165,18 +167,18 @@ export const createShipment = async (req, res) => {
       form.append("custom_order_id", shipmentData.order);
 
       // Make the POST request to Selloship API
-      // const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
-      //     headers: {
-      //         Authorization: loginResponse.data.access_token,
-      //         ...form.getHeaders(),
-      //     },
-      // });
+      const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
+          headers: {
+              Authorization: loginResponse.data.access_token,
+              ...form.getHeaders(),
+          },
+      });
 
-      // const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
+      const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
 
-      // if (!selloShipOrderId) {
-      //   return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
-      // }
+      if (!selloShipOrderId) {
+        return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
+      }
   
       // ✅ AWB Generation Step
       // const awbForm = new FormData();
@@ -200,8 +202,8 @@ export const createShipment = async (req, res) => {
       const awbPayload = {
         serviceType: "Surface",
         Shipment: {
-          code: shipmentData.order,
-          orderCode: "25646397",
+          code: selloShipOrderId,
+          orderCode: shipmentData.order,
           weight: shipmentData.weight.toFixed(2), // e.g., "500.00"
           length: shipmentData.shipment_length *10,
           height: shipmentData.shipment_height * 10,
@@ -278,7 +280,7 @@ export const createShipment = async (req, res) => {
         courierName: ""
       };
 
-      console.log(awbPayload)
+      //console.log(awbPayload)
 
       const awbResponse = await axios.post(
         "https://selloship.com/api/lock_actvs/channels/waybill",
@@ -295,27 +297,79 @@ export const createShipment = async (req, res) => {
       
       const selloShipAWB = awbResponse.data?.awb || awbResponse.data?.AWB; 
   
-      if (selloShipAWB) {
+      if (awbResponse.data?.status === "SUCCESS") {
+        const selloShipAWB = awbResponse.data.waybill; // This is the correct AWB number
+        const shippingLabel = awbResponse.data.shippingLabel;
+      
+        // Continue with the logic for updating the order with the generated AWB
         const updatedOrder = await Order.findOneAndUpdate(
-          { orderId: shipmentData.order }, // Assuming orderId is unique
-          {
-            selloShipOrderId,
-            selloShipAWB,
-            status: 'Processing', // Update the order status
-          },
-          { new: true } // Return the updated order
+          { orderId: shipmentData.order },
+          { selloShipOrderId, selloShipAWB, status: 'Processing' },
+          { new: true }
         );
-  
+      
         return res.status(200).json({
           success: true,
           message: 'Shipment and AWB generated successfully',
           orderResponse: createOrderResponse.data,
           awbResponse: awbResponse.data,
-          updatedOrder, // Return the updated order details
+          updatedOrder,
+          shippingLabel,  // Optionally return the shipping label URL
         });
       } else {
-        return res.status(400).json({ success: false, message: 'Failed to generate AWB',data: awbResponse.data });
+        console.error('AWB generation failed:', awbResponse.data);
+        return res.status(400).json({ success: false, message: 'Failed to generate AWB', data: awbResponse.data });
       }
+  } catch (error) {
+      console.error('Selloship order error:', error?.response?.data || error.message);
+      res.status(500).json({ success: false, message: 'Selloship order failed', error: error?.response?.data || error.message });
+  }
+};
+
+export const getOrderShipment = async (req, res) => {
+  try {
+      const { orderId } = req.body;
+
+      const loginForm = new FormData();
+    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+    const loginResponse = await axios.post(
+      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+      loginForm,
+      {
+        headers: {
+          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+          ...loginForm.getHeaders(),
+        },
+      }
+    );
+
+    // console.log(loginResponse);
+
+
+    // Optional: You can inspect `loginResponse.data` if you need a token or validation check
+    if (loginResponse.data.success !== "1") {
+      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    }
+
+    //console.log(loginResponse)
+      
+      // Prepare FormData for Selloship API
+      const form = new FormData();
+      form.append("vendor_id", loginResponse.data.vendor_id);
+      form.append("device_from", loginResponse.data.device_from);
+      form.append("order_id", orderId);
+
+      // Make the POST request to Selloship API
+      const orderResponse = await axios.post('https://selloship.com/api/lock_actvs/vendor_order_detail', form, {
+          headers: {
+              Authorization: loginResponse.data.access_token,
+              ...form.getHeaders(),
+          },
+      });
+
+     console.log(orderResponse.data)
   } catch (error) {
       console.error('Selloship order error:', error?.response?.data || error.message);
       res.status(500).json({ success: false, message: 'Selloship order failed', error: error?.response?.data || error.message });

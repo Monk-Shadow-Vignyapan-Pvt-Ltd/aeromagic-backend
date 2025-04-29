@@ -406,7 +406,15 @@ export const getProductsByCategory = async (req, res) => {
 
         const products = await Product.aggregate(pipeline);
 
-        if (!products.length) return res.status(404).json({ message: "No products found", success: false });
+        if (!products.length) return res.status(200).json({
+            products:[],
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: 1,
+                totalProducts:0,
+            }
+        });
 
         const totalProducts = await Product.countDocuments(filter);
 

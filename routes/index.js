@@ -30,6 +30,7 @@ import delhiverySettingRoute from "./delhivery-setting.route.js";
 import couponRoute from "./coupon.route.js";
 import orderRoute from "./order.route.js";
 import offerBannerRoute from "./offerBanner.route.js";
+import tagRoute from "./tag.route.js";
 
 const routes = {
   categoryRoute,
@@ -63,7 +64,8 @@ const routes = {
   delhiverySettingRoute,
   couponRoute,
   orderRoute,
-  offerBannerRoute
+  offerBannerRoute,
+  tagRoute
 };
 
 export default routes;
