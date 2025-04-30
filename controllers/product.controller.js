@@ -278,7 +278,7 @@ export const getProductsForHome = async (req, res) => {
 
         // Filter categories with rank < 6
         const filteredProducts = categories
-            .filter(category => parseFloat(category.rank) < 6)
+            .filter(category => parseFloat(category.rank) < 3)
             .map(category => {
                 let categoryProducts = products.filter(product => product.categoryId.toString() === category._id.toString());
                 
