@@ -13,11 +13,11 @@ export const globalSearch = async (req, res) => {
     const collectionsToSearch = {
       categories: {
         searchableFields: ["categoryName"],
-        resultFields: ["_id", "categoryName", "categoryImage"],
+        resultFields: ["_id", "categoryName", "thumbnailCategoryImage",],
       },
       products: {
         searchableFields: ["productName"],
-        resultFields: ["_id", "productName", "productImage"],
+        resultFields: ["_id", "productName", "productImage","productUrl"],
       },
     };
 
