@@ -63,6 +63,7 @@ app.use("/api/v1/coupons", routes.couponRoute);
 app.use("/api/v1/orders", routes.orderRoute);
 app.use("/api/v1/offerBanners", routes.offerBannerRoute);
 app.use("/api/v1/tags", routes.tagRoute);
+app.use("/api/v1/ctas", routes.ctaRoute);
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);
