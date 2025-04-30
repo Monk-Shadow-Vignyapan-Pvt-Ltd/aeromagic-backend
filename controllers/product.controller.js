@@ -434,6 +434,42 @@ export const getProductsByCategory = async (req, res) => {
     }
 };
 
+export const getProductsHeader = async (req, res) => {
+    try {
+        const categories = await Category.find().select("categoryName");
+        let allRandomProducts = [];
+
+        for (const category of categories) {
+            const products = await Product.aggregate([
+                {
+                    $match: {
+                        categoryId: new mongoose.Types.ObjectId(category._id)
+                    }
+                },
+                { $sample: { size: 4 } },
+                {
+                    $project: { // Select only the required fields (image and name)
+                        productImage: 1,
+                        productName: 1,
+                        productUrl:1,
+                        categoryId:1,
+                    }
+                }
+            ]);
+
+            allRandomProducts = allRandomProducts.concat(products);
+        }
+
+        res.status(200).json({
+            success: true,
+            products: allRandomProducts
+        });
+    } catch (error) {
+        console.error("Error fetching random products:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch products" });
+    }
+};
+
 export const updateShowOnHomeProduct = async (req, res) => {
     try {
         const { id } = req.params;

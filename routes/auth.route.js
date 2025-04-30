@@ -1,6 +1,7 @@
 import express from "express";
 import {auth} from "../middleware/auth.js"
 import { addUser, login, tokenIsValid, getUser,getUsers,updateUser,deleteUser,} from "../controllers/auth.controller.js";
+import { globalSearch } from "../controllers/global_search.controller.js";
 import {maintenanceOnOff,getMaintenanceOnOff} from  "../controllers/maintenance.controller.js";
 
 const router = express.Router();
@@ -14,5 +15,6 @@ router.route("/updateUser/:id").post( updateUser);
 router.route("/deleteUser/:id").delete( deleteUser);
 router.route("/maintenanceOnOff").post( maintenanceOnOff);
 router.route("/getMaintenanceOnOff").get(getMaintenanceOnOff);
+router.route("/globalSearch").post( globalSearch);
 
 export default router;
