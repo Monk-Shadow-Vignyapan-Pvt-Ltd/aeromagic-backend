@@ -2,15 +2,15 @@ import { Cta } from "../models/cta.model.js";
 
 export const upsertCta = async (req, res) => {
     try {
-        const { ctaTitle, ctaImage, ctaDescription, ctaUrl, ctaEnabled } = req.body;
+        const { ctaTitle, ctaImage, ctaDescription,ctaButtonName, ctaUrl, ctaEnabled } = req.body;
 
-        if (!ctaTitle || !ctaImage || !ctaDescription || !ctaUrl || ctaEnabled === undefined) {
+        if (!ctaTitle || !ctaImage || !ctaDescription || !ctaButtonName || !ctaUrl || ctaEnabled === undefined) {
             return res.status(400).json({ message: 'All CTA fields are required', success: false });
         }
 
         const updatedCta = await Cta.findByIdAndUpdate(
             'singleton',
-            { ctaTitle, ctaImage, ctaDescription, ctaUrl, ctaEnabled },
+            { ctaTitle, ctaImage, ctaDescription,ctaButtonName, ctaUrl, ctaEnabled },
             { new: true, upsert: true, runValidators: true }
         );
 

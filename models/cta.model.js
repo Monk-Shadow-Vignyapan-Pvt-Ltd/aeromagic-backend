@@ -14,6 +14,10 @@ const ctaSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    ctaButtonName:{
+        type: String,
+        required: true
+    },
     ctaUrl:{
         type:String,
         required:true,
