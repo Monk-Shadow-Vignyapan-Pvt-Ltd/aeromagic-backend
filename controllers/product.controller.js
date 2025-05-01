@@ -318,7 +318,7 @@ export const getProductsForHome = async (req, res) => {
 export const getProductsByCategory = async (req, res) => {
     try {
         let { id } = req.params;
-        const { brand, ingredient, availability, price, size, gender, rating, page = 1,sortOption } = req.query;
+        const { brand, tone,occasion, availability, price, gender, rating, page = 1,sortOption } = req.query;
 
         if (!id || id === "undefined") {
             const firstCategory = await Category.findOne().sort({ createdAt: 1 });
@@ -334,8 +334,139 @@ export const getProductsByCategory = async (req, res) => {
         // Apply filters dynamically
         filter.categoryId = new mongoose.Types.ObjectId(id);
         if (brand) filter.brand = brand;
-        if (ingredient) filter.ingredients = { $in: ingredient.split(",") }; // If multiple, expect comma-separated
-        if (size) filter.size = { $in: size.split(",") };
+        if (tone) {
+            const toneIds = tone.split(",");
+            filter["tone.value"] = { $in: toneIds };
+          }
+          if (occasion) {
+            const occasionIds = occasion.split(",");
+            filter.occasions = {
+                $elemMatch: {
+                    value: { $in: occasionIds }
+                }
+            };
+        }        
+        if (gender) filter.gender = { $in: gender.split(",") };
+        if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
+
+        // Price filter (expects min-max format: "10-100")
+        if (price) {
+            const priceRanges = price.split(",").map(range => range.split("-").map(Number)); // Convert to number arrays
+            filter.$or = priceRanges.map(([min, max]) => ({
+                $or: [
+                    // Case 1: Products without variations (filter by finalSellingPrice)
+                    { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
+        
+                    // Case 2: Products with variations (filter by variationPrices array)
+                    { hasVariations: true, variationPrices: { $elemMatch: { finalSellingPrice: { $gte: min, $lte: max } } } }
+                ]
+            }));
+        }
+
+        if (availability) {
+            const availabilityArray = availability.split(",").map(status => status === "true"); // Convert "true" or "false" strings to actual booleans
+        
+            filter.$or = [
+                { hasVariations: false, inStock: { $in: availabilityArray } }, // For products without variations
+                { hasVariations: true, variationPrices: { $elemMatch: { checked: { $in: availabilityArray } } } } // For products with variations
+            ];
+        }
+        
+
+        // Pagination
+        const limit = 12;
+        const skip = (page - 1) * limit;
+        let sortQuery = { createdAt: -1 };
+
+        const pipeline = [
+            { $match: filter },
+            {
+                $addFields: {
+                    computedPrice: {
+                        $cond: {
+                            if: { $eq: ["$hasVariations", true] },
+                            then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                            else: "$finalSellingPrice"
+                        }
+                    }
+                }
+            }
+        ];
+
+        // Sorting Logic
+        switch (sortOption) {
+            case "price-low-high":
+                pipeline.push({ $sort: { computedPrice: 1 } });
+                break;
+            case "price-high-low":
+                pipeline.push({ $sort: { computedPrice: -1 } });
+                break;
+            case "rating-high-low":
+                pipeline.push({ $sort: { rating: -1 } });
+                break;
+            case "rating-low-high":
+                pipeline.push({ $sort: { rating: 1 } });
+                break;
+            default:
+                pipeline.push({ $sort: { createdAt: -1 } });
+                break;
+        }
+
+        // Pagination in aggregation
+        pipeline.push({ $skip: skip }, { $limit: limit });
+
+        const products = await Product.aggregate(pipeline);
+
+        if (!products.length) return res.status(200).json({
+            products:[],
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: 1,
+                totalProducts:0,
+            }
+        });
+
+        const totalProducts = await Product.countDocuments(filter);
+
+        res.status(200).json({
+            products,
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(totalProducts / limit),
+                totalProducts,
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ message: 'Failed to fetch products', success: false });
+    }
+};
+
+export const getAllProducts = async (req, res) => {
+    try {
+        const { brand, tone, availability, price, occasion, gender, rating, page = 1,sortOption } = req.query;
+
+
+        let filter = { };
+
+        // Apply filters dynamically
+        if (brand) filter.brand = brand;
+        if (tone) {
+            const toneIds = tone.split(",");
+            filter["tone.value"] = { $in: toneIds };
+          }
+          if (occasion) {
+            const occasionIds = occasion.split(",");
+            filter.occasions = {
+                $elemMatch: {
+                    value: { $in: occasionIds }
+                }
+            };
+        }
+        
         if (gender) filter.gender = { $in: gender.split(",") };
         if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
 
@@ -526,7 +657,7 @@ export const addProductInSearch = async (req, res) => {
                   { new: true, upsert: true }
                 );
 
-        await ProductSearch.save();
+        //await ProductSearch.save();
         res.status(201).json({ productRanking, success: true });
     } catch (error) {
         console.error('Error uploading productRanking:', error);
