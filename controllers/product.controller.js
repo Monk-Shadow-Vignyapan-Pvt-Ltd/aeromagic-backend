@@ -2,6 +2,7 @@ import { Product } from '../models/product.model.js'; // Adjust the import to ma
 import { Category } from '../models/category.model.js';
 import sharp from 'sharp';
 import mongoose from "mongoose";
+import { ProductSearch } from '../models/product_search.model.js';
 
 // Add a new product
 export const addProduct = async (req, res) => {
@@ -513,5 +514,64 @@ export const getProductIds = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Failed to fetch products', success: false });
+    }
+};
+
+export const addProductInSearch = async (req, res) => {
+    try {
+        let { ranking,userId} = req.body;
+        const productRanking = await ProductSearch.findOneAndUpdate(
+                  {}, 
+                  { ranking,userId}, 
+                  { new: true, upsert: true }
+                );
+
+        await ProductSearch.save();
+        res.status(201).json({ productRanking, success: true });
+    } catch (error) {
+        console.error('Error uploading productRanking:', error);
+        res.status(500).json({ message: 'Failed to upload productRanking', success: false });
+    }
+};
+
+export const getProductInSearch = async (req, res) => {
+  try {
+      const productRankings = await ProductSearch.find();
+      if (!productRankings) return res.status(404).json({ message: "Product Rankings not found", success: false });
+      return res.status(200).json({ productRankings });
+  } catch (error) {
+      console.log(error);
+      res.status(500).json({ message: 'Failed to fetch product Rankings', success: false });
+  }
+};
+
+export const getProductsAfterInSearch = async (req, res) => {
+    try {
+        // Fetch the service ranking
+        const productRanking = await ProductSearch.findOne().select('ranking');
+        if (!productRanking || !productRanking.ranking || productRanking.ranking.length === 0) {
+            return res.status(404).json({ message: "No ranked products found", success: false });
+        }
+
+        // Extract service IDs from the ranking
+        const rankedProductIds = productRanking.ranking.map(item => item.value);
+
+        // Fetch services that match the ranked IDs
+        const products = await Product.find({ _id: { $in: rankedProductIds } })
+        .select('productName productUrl  productImage');
+
+    
+
+        if (!products || products.length === 0) {
+            return res.status(404).json({ message: "Ranked products not found", success: false });
+        }
+
+        // Sort services based on their rank
+        const sortedProducts = rankedProductIds.map(id => products.find(product => product._id.toString() === id));
+
+        return res.status(200).json({ products: sortedProducts, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch ranked products', success: false });
     }
 };
