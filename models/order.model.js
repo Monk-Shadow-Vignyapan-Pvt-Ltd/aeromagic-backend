@@ -71,7 +71,15 @@ const orderSchema = new mongoose.Schema({
     selloShipAWB:{
         type: String,
         required: false
-    }
+    },
+    shippingLabel:{
+        type: mongoose.Schema.Types.Mixed,
+        required: false 
+    },
+    courierName:{
+        type: String,
+        required: false
+    },
 }, { timestamps: true });
 
 export const Order = mongoose.model("Order", orderSchema);

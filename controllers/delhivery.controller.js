@@ -121,64 +121,64 @@ export const createShipment = async (req, res) => {
   try {
       const { shipmentData } = req.body;
 
-      const loginForm = new FormData();
-    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
-    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+    //   const loginForm = new FormData();
+    // loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    // loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
 
-    const loginResponse = await axios.post(
-      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
-      loginForm,
-      {
-        headers: {
-          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
-          ...loginForm.getHeaders(),
-        },
-      }
-    );
+    // const loginResponse = await axios.post(
+    //   'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+    //   loginForm,
+    //   {
+    //     headers: {
+    //       Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+    //       ...loginForm.getHeaders(),
+    //     },
+    //   }
+    // );
 
-    // console.log(loginResponse);
+    // // console.log(loginResponse);
 
 
-    // Optional: You can inspect `loginResponse.data` if you need a token or validation check
-    if (loginResponse.data.success !== "1") {
-      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
-    }
+    // // Optional: You can inspect `loginResponse.data` if you need a token or validation check
+    // if (loginResponse.data.success !== "1") {
+    //   return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    // }
 
     //console.log(loginResponse)
       
       // Prepare FormData for Selloship API
-      const form = new FormData();
-      form.append("vendor_id", loginResponse.data.vendor_id);
-      form.append("device_from", loginResponse.data.device_from);
-      form.append("product_name", shipmentData.products_desc);
-      form.append("price", shipmentData.total_amount);
-      form.append("old_price", shipmentData.total_amount);
-      form.append("first_name", shipmentData.name.split(" ")[0]); // assuming first name is the first part
-      form.append("last_name", shipmentData.name.split(" ")[1] || ""); // assuming second part is the last name
-      form.append("mobile_no", shipmentData.phone);
-      form.append("email", "temp@selloship.com"); // You can replace this with actual email
-      form.append("address", shipmentData.add);
-      form.append("state", shipmentData.state);
-      form.append("city", shipmentData.city);
-      form.append("zip_code", shipmentData.pin);
-      form.append("landmark", ""); // Optional
-      form.append("payment_method", shipmentData.payment_mode === "COD" ? "3" : "1"); // 3 = COD, 1 = Prepaid
-      form.append("qty", shipmentData.quantity);
-      form.append("custom_order_id", shipmentData.order);
+      // const form = new FormData();
+      // form.append("vendor_id", loginResponse.data.vendor_id);
+      // form.append("device_from", loginResponse.data.device_from);
+      // form.append("product_name", shipmentData.products_desc);
+      // form.append("price", shipmentData.total_amount);
+      // form.append("old_price", shipmentData.total_amount);
+      // form.append("first_name", shipmentData.name.split(" ")[0]); // assuming first name is the first part
+      // form.append("last_name", shipmentData.name.split(" ")[1] || ""); // assuming second part is the last name
+      // form.append("mobile_no", shipmentData.phone);
+      // form.append("email", "temp@selloship.com"); // You can replace this with actual email
+      // form.append("address", shipmentData.add);
+      // form.append("state", shipmentData.state);
+      // form.append("city", shipmentData.city);
+      // form.append("zip_code", shipmentData.pin);
+      // form.append("landmark", ""); // Optional
+      // form.append("payment_method", shipmentData.payment_mode === "COD" ? "3" : "1"); // 3 = COD, 1 = Prepaid
+      // form.append("qty", shipmentData.quantity);
+      // form.append("custom_order_id", shipmentData.order);
 
-      // Make the POST request to Selloship API
-      const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
-          headers: {
-              Authorization: loginResponse.data.access_token,
-              ...form.getHeaders(),
-          },
-      });
+      // // Make the POST request to Selloship API
+      // const createOrderResponse = await axios.post('https://selloship.com/web_api/Create_order', form, {
+      //     headers: {
+      //         Authorization: loginResponse.data.access_token,
+      //         ...form.getHeaders(),
+      //     },
+      // });
 
-      const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
+      // const selloShipOrderId = createOrderResponse.data?.selloship_order_id;
 
-      if (!selloShipOrderId) {
-        return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
-      }
+      // if (!selloShipOrderId) {
+      //   return res.status(400).json({ success: false, message: 'Failed to create Selloship order', data: createOrderResponse.data });
+      // }
   
       // ✅ AWB Generation Step
       // const awbForm = new FormData();
@@ -202,7 +202,7 @@ export const createShipment = async (req, res) => {
       const awbPayload = {
         serviceType: "Surface",
         Shipment: {
-          code: selloShipOrderId,
+          code: shipmentData.order,
           orderCode: shipmentData.order,
           weight: shipmentData.weight.toFixed(2), // e.g., "500.00"
           length: shipmentData.shipment_length *10,
@@ -287,7 +287,7 @@ export const createShipment = async (req, res) => {
         awbPayload,
         {
           headers: {
-            Authorization: `token 67e533fe3032b174307430249942`,
+            Authorization: `token ${process.env.SELLOSHIP_TOKEN}`,
             "Content-Type": "application/json",
           },
         }
@@ -295,23 +295,24 @@ export const createShipment = async (req, res) => {
 
       //console.log(awbResponse)
       
-      const selloShipAWB = awbResponse.data?.awb || awbResponse.data?.AWB; 
+     // const selloShipAWB = awbResponse.data?.awb || awbResponse.data?.AWB; 
   
       if (awbResponse.data?.status === "SUCCESS") {
         const selloShipAWB = awbResponse.data.waybill; // This is the correct AWB number
         const shippingLabel = awbResponse.data.shippingLabel;
+        const courierName = awbResponse.data.courierName;
       
         // Continue with the logic for updating the order with the generated AWB
         const updatedOrder = await Order.findOneAndUpdate(
           { orderId: shipmentData.order },
-          { selloShipOrderId, selloShipAWB, status: 'Processing' },
+          { selloShipAWB,shippingLabel,courierName, status: 'Processing' },
           { new: true }
         );
       
         return res.status(200).json({
           success: true,
           message: 'Shipment and AWB generated successfully',
-          orderResponse: createOrderResponse.data,
+          //orderResponse: createOrderResponse.data,
           awbResponse: awbResponse.data,
           updatedOrder,
           shippingLabel,  // Optionally return the shipping label URL
@@ -387,14 +388,55 @@ export const trackShipment = async (req, res) => {
             return res.status(400).json({ message: 'Tracking ID is required', success: false });
         }
 
-        const response = await axios.get(
-            `${BASE_URL}/api/v1/packages/json/?waybill=${trackingId}`,
-            {
-                headers: { Authorization: `Token ${API_KEY}` },
-            }
-        );
+        // const response = await axios.get(
+        //     `${BASE_URL}/api/v1/packages/json/?waybill=${trackingId}`,
+        //     {
+        //         headers: { Authorization: `Token ${API_KEY}` },
+        //     }
+        // );
 
-        return res.status(200).json({ data: response.data, success: true });
+        const loginForm = new FormData();
+    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+    const loginResponse = await axios.post(
+      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+      loginForm,
+      {
+        headers: {
+          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+          ...loginForm.getHeaders(),
+        },
+      }
+    );
+
+    // console.log(loginResponse);
+
+
+    // Optional: You can inspect `loginResponse.data` if you need a token or validation check
+    if (loginResponse.data.success !== "1") {
+      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    }
+
+    //console.log(loginResponse)
+      
+      // Prepare FormData for Selloship API
+      const form = new FormData();
+      form.append("vendor_id", loginResponse.data.vendor_id);
+      form.append("device_from", loginResponse.data.device_from);
+      form.append("tracking_id", trackingId);
+      form.append("status", 2);
+
+      // Make the POST request to Selloship API
+      const trackResponse = await axios.post('https://selloship.com/api/lock_actvs/tracking_detail', form, {
+          headers: {
+              Authorization: loginResponse.data.access_token,
+              ...form.getHeaders(),
+          },
+      });
+      //console.log(trackResponse)
+
+        return res.status(200).json({ data: trackResponse.data, success: true });
     } catch (error) {
         console.error('Error tracking shipment:', error);
         res.status(500).json({ message: 'Failed to track shipment', success: false });
