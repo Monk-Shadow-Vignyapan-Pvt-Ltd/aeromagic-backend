@@ -336,13 +336,13 @@ export const getProductsByCategory = async (req, res) => {
         if (brand) filter.brand = brand;
         if (tone) {
             const toneIds = tone.split(",");
-            filter["tone.value"] = { $in: toneIds };
+            filter["tone.label"] = { $in: toneIds };
           }
           if (occasion) {
             const occasionIds = occasion.split(",");
             filter.occasions = {
                 $elemMatch: {
-                    value: { $in: occasionIds }
+                    label: { $in: occasionIds }
                 }
             };
         }        
@@ -456,13 +456,13 @@ export const getAllProducts = async (req, res) => {
         if (brand) filter.brand = brand;
         if (tone) {
             const toneIds = tone.split(",");
-            filter["tone.value"] = { $in: toneIds };
+            filter["tone.label"] = { $in: toneIds };
           }
           if (occasion) {
             const occasionIds = occasion.split(",");
             filter.occasions = {
                 $elemMatch: {
-                    value: { $in: occasionIds }
+                    label: { $in: occasionIds }
                 }
             };
         }
