@@ -1,22 +1,27 @@
 import { Order } from '../models/order.model.js'; // Adjust the path as necessary
 import moment from 'moment';
-import {Customer} from '../models/customer.model.js';
+import { Customer } from '../models/customer.model.js';
 import nodemailer from 'nodemailer';
+import axios from "axios";
+import dotenv from "dotenv";
+import FormData from 'form-data';
+
+dotenv.config();
 
 const transporter = nodemailer.createTransport({
     service: 'smtp.aromagicperfume.com', // Or your SMTP provider
     auth: {
-      user: process.env.SMTP_EMAIL,
-      pass: process.env.SMTP_PASSWORD,
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD,
     },
-  });
+});
 
-const sendOrderConfirmationEmail = async (to, orderId, customerName,cartItems) => {
+const sendOrderConfirmationEmail = async (to, orderId, customerName, cartItems) => {
     const mailOptions = {
-      from: process.env.SMTP_EMAIL,
-      to,
-      subject: `Your Order ${orderId} has been placed!`,
-      html: `
+        from: process.env.SMTP_EMAIL,
+        to,
+        subject: `Your Order ${orderId} has been placed!`,
+        html: `
         <!DOCTYPE html>
       <html>
       <head>
@@ -278,14 +283,14 @@ const sendOrderConfirmationEmail = async (to, orderId, customerName,cartItems) =
       </html>
       `,
     };
-  
+
     return transporter.sendMail(mailOptions);
-  };
+};
 
 // Add a new order
 export const addOrder = async (req, res) => {
     try {
-        const { customerId,orderType, cartItems, status ,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage} = req.body;
+        const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage } = req.body;
 
         const now = new Date();
         const formattedDate = moment(now).format('DD-MM-YYYY');
@@ -309,7 +314,7 @@ export const addOrder = async (req, res) => {
             cartItems,
             status,
             orderId,
-            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal ,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage
+            shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage
         });
 
         await order.save();
@@ -317,7 +322,7 @@ export const addOrder = async (req, res) => {
         // if (customer?.email) {
         //   await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
         // }
-    
+
         res.status(201).json({ order, success: true });
     } catch (error) {
         console.error('Error adding order:', error);
@@ -357,34 +362,104 @@ export const getOrders = async (req, res) => {
         const skip = (parseInt(page) - 1) * parseInt(limit);
 
         const totalOrders = await Order.countDocuments(filter);
+        // Fetch orders
         const orders = await Order.find(filter)
             .populate("customerId")
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(parseInt(limit));
 
-        // If you want to search by customer name (populated), you need aggregation
-        if (search && orders.length > 0) {
-            const lowerSearch = search.toLowerCase();
-            const filteredByCustomer = orders.filter(order =>
-                order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
-            );
-           
+        // Login to Selloship once
+        const loginForm = new FormData();
+        loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+        loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
 
-            return res.status(200).json({
-                orders: filteredByCustomer,
-                totalPages: Math.ceil(filteredByCustomer.length / limit),
-                currentPage: parseInt(page),
-                success: true
-            });
+        const loginResponse = await axios.post(
+            'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+            loginForm,
+            {
+                headers: {
+                    Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+                    ...loginForm.getHeaders(),
+                },
+            }
+        );
+
+        if (loginResponse.data.success !== "1") {
+            return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
         }
 
+        // Enrich orders with Selloship tracking info
+        const enrichedOrders = await Promise.all(orders.map(async (order) => {
+            if (!order.selloShipAWB) {
+                return { ...order.toObject(), trackingInfo: null };
+            }
+
+            const trackForm = new FormData();
+            trackForm.append("vendor_id", loginResponse.data.vendor_id);
+            trackForm.append("device_from", loginResponse.data.device_from);
+            trackForm.append("tracking_id", order.selloShipAWB);
+
+            try {
+                const trackResponse = await axios.post(
+                    'https://selloship.com/api/lock_actvs/tracking_detail',
+                    trackForm,
+                    {
+                        headers: {
+                            Authorization: loginResponse.data.access_token,
+                            ...trackForm.getHeaders(),
+                        },
+                    }
+                );
+
+                const statusCode = trackResponse.data.status_code;
+
+                // Determine new status
+                const newStatus =
+                    statusCode === "2" ? "Shipped" :
+                        statusCode === "3" ? "Delivered" :
+                            statusCode === "4" || statusCode === "5" ? "Returned" :
+                                statusCode === "6" ? "Cancelled" :
+                                    "Processing";
+
+                // Update the order in the database if status changed
+                if (order.status !== newStatus) {
+                    await Order.findByIdAndUpdate(order._id, { status: newStatus });
+                }
+
+                return {
+                    ...order.toObject(),
+                    trackingInfo: trackResponse.data,
+                    status: newStatus,
+                };
+
+            } catch (err) {
+                console.error(`Tracking failed for order ${order._id}:`, err.message);
+                return {
+                    ...order.toObject(),
+                    trackingInfo: null,
+                };
+            }
+        }));
+
+
+        // Filter by customer name (if search query is given)
+        let finalOrders = enrichedOrders;
+        if (search && search.trim() !== "") {
+            const lowerSearch = search.toLowerCase();
+            finalOrders = enrichedOrders.filter(order =>
+                order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
+            );
+        }
+
+        // Final response
         res.status(200).json({
-            orders,
-            totalPages: Math.ceil(totalOrders / limit),
+            orders: finalOrders,
+            totalPages: Math.ceil(finalOrders.length / limit),
             currentPage: parseInt(page),
             success: true
         });
+
     } catch (error) {
         console.error("Error fetching orders:", error);
         res.status(500).json({ message: "Failed to fetch orders", success: false });
@@ -410,7 +485,7 @@ export const getOrderById = async (req, res) => {
 export const getOrdersByCustomerId = async (req, res) => {
     try {
         const customerId = req.params.id;
-        const orders = await Order.find({customerId}).sort({ createdAt: -1 });
+        const orders = await Order.find({ customerId }).sort({ createdAt: -1 });
         if (!orders) {
             return res.status(404).json({ message: "Orders not found", success: false });
         }
@@ -427,14 +502,14 @@ export const getOrdersByCustomerId = async (req, res) => {
 export const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const { customerId,orderType, cartItems, status,shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage } = req.body;
+        const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage } = req.body;
 
         const updatedData = {
             customerId,
             orderType,
             cartItems,
             status,
-            shippingAddress,subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal ,giftPacking,removePriceFromInvoice ,addGiftMessage,giftMessage
+            shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage
         };
 
         const order = await Order.findByIdAndUpdate(id, updatedData, {
