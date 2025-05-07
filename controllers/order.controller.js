@@ -1,4 +1,5 @@
 import { Order } from '../models/order.model.js'; // Adjust the path as necessary
+import { Product } from '../models/product.model.js'; 
 import moment from 'moment';
 import { Customer } from '../models/customer.model.js';
 import nodemailer from 'nodemailer';
@@ -444,10 +445,36 @@ export const getOrders = async (req, res) => {
 
 
         // Filter by customer name (if search query is given)
-        let finalOrders = enrichedOrders;
+        const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
+            const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+                try {
+                    let cleanProductId = item.id;
+
+                    if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+                        cleanProductId = item.id.split("_")[0];
+                    }
+        
+                    const product = await Product.findById(cleanProductId).select("productImage"); // or item._id if it's stored directly
+                    return {
+                        ...item,
+                        img: product?.productImage || null, // fallback if img is not found
+                    };
+                } catch (err) {
+                    console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+                    return item; // return item as-is if fetch fails
+                }
+            }));
+        
+            return {
+                ...order,
+                cartItems: updatedCartItems,
+            };
+        }));
+        
+        let finalOrders = enrichedOrdersWithImages;
         if (search && search.trim() !== "") {
             const lowerSearch = search.toLowerCase();
-            finalOrders = enrichedOrders.filter(order =>
+            finalOrders = enrichedOrdersWithImages.filter(order =>
                 order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
             );
         }
@@ -486,10 +513,106 @@ export const getOrdersByCustomerId = async (req, res) => {
     try {
         const customerId = req.params.id;
         const orders = await Order.find({ customerId }).sort({ createdAt: -1 });
-        if (!orders) {
+        const loginForm = new FormData();
+        loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+        loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+        const loginResponse = await axios.post(
+            'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+            loginForm,
+            {
+                headers: {
+                    Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+                    ...loginForm.getHeaders(),
+                },
+            }
+        );
+
+        if (loginResponse.data.success !== "1") {
+            return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+        }
+
+        // Enrich orders with Selloship tracking info
+        const enrichedOrders = await Promise.all(orders.map(async (order) => {
+            if (!order.selloShipAWB) {
+                return { ...order.toObject(), trackingInfo: null };
+            }
+
+            const trackForm = new FormData();
+            trackForm.append("vendor_id", loginResponse.data.vendor_id);
+            trackForm.append("device_from", loginResponse.data.device_from);
+            trackForm.append("tracking_id", order.selloShipAWB);
+
+            try {
+                const trackResponse = await axios.post(
+                    'https://selloship.com/api/lock_actvs/tracking_detail',
+                    trackForm,
+                    {
+                        headers: {
+                            Authorization: loginResponse.data.access_token,
+                            ...trackForm.getHeaders(),
+                        },
+                    }
+                );
+
+                const statusCode = trackResponse.data.status_code;
+
+                // Determine new status
+                const newStatus =
+                    statusCode === "2" ? "Shipped" :
+                        statusCode === "3" ? "Delivered" :
+                            statusCode === "4" || statusCode === "5" ? "Returned" :
+                                statusCode === "6" ? "Cancelled" :
+                                    "Processing";
+
+                // Update the order in the database if status changed
+                if (order.status !== newStatus) {
+                    await Order.findByIdAndUpdate(order._id, { status: newStatus });
+                }
+
+                return {
+                    ...order.toObject(),
+                    trackingInfo: trackResponse.data,
+                    status: newStatus,
+                };
+
+            } catch (err) {
+                console.error(`Tracking failed for order ${order._id}:`, err.message);
+                return {
+                    ...order.toObject(),
+                    trackingInfo: null,
+                };
+            }
+        }));
+        const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
+            const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+                try {
+                    let cleanProductId = item.id;
+
+                    if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+                        cleanProductId = item.id.split("_")[0];
+                    }
+        
+                    const product = await Product.findById(cleanProductId).select("productImage"); // or item._id if it's stored directly
+                    return {
+                        ...item,
+                        img: product?.productImage || null, // fallback if img is not found
+                    };
+                } catch (err) {
+                    console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+                    return item; // return item as-is if fetch fails
+                }
+            }));
+        
+            return {
+                ...order,
+                cartItems: updatedCartItems,
+            };
+        }));
+        if (!enrichedOrdersWithImages) {
             return res.status(404).json({ message: "Orders not found", success: false });
         }
-        res.status(200).json({ orders, success: true });
+        res.status(200).json({ orders:enrichedOrdersWithImages, success: true });
     } catch (error) {
         console.error('Error fetching orders:', error);
         res.status(500).json({ message: 'Failed to fetch orders', success: false });
