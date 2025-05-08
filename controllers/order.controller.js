@@ -482,7 +482,7 @@ export const getOrders = async (req, res) => {
         // Final response
         res.status(200).json({
             orders: finalOrders,
-            totalPages: Math.ceil(finalOrders.length / limit),
+            totalPages: Math.ceil(totalOrders / limit),
             currentPage: parseInt(page),
             success: true
         });
