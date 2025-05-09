@@ -446,21 +446,64 @@ export const trackShipment = async (req, res) => {
 // Cancel Shipment
 export const cancelShipment = async (req, res) => {
     try {
-        const { trackingId } = req.params;
+        const { trackingId,orderId } = req.body;
 
-        if (!trackingId) {
-            return res.status(400).json({ message: 'Tracking ID is required', success: false });
-        }
+        const loginForm = new FormData();
+        loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+        loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
 
-        const response = await axios.post(
-            `${BASE_URL}/api/p/edit`,
-            { waybill: trackingId, cancel_reason: "Customer request" },
+        const loginResponse = await axios.post(
+            'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+            loginForm,
             {
-                headers: { Authorization: `Token ${API_KEY}` },
+                headers: {
+                    Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+                    ...loginForm.getHeaders(),
+                },
             }
         );
 
-        return res.status(200).json({ data: response.data, success: true });
+        if (loginResponse.data.success !== "1") {
+            return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+        }
+
+        const trackForm = new FormData();
+        trackForm.append("vendor_id", loginResponse.data.vendor_id);
+        trackForm.append("device_from", loginResponse.data.device_from);
+        trackForm.append("tracking_id", trackingId);
+
+        const trackResponse = await axios.post(
+          'https://selloship.com/api/lock_actvs/tracking_detail',
+          trackForm,
+          {
+              headers: {
+                  Authorization: loginResponse.data.access_token,
+                  ...trackForm.getHeaders(),
+              },
+          }
+      );
+
+      const cancelForm = new FormData();
+      cancelForm.append("vendor_id", loginResponse.data.vendor_id);
+      cancelForm.append("device_from", loginResponse.data.device_from);
+      cancelForm.append("order_id", trackResponse.data.data[0].order_id);
+      cancelForm.append("cancel_note","Order Cancel By Customer");
+
+      const cancelResponse = await axios.post(
+        'https://selloship.com/api/lock_actvs/Vendor_cancel_order',
+        cancelForm,
+        {
+            headers: {
+                Authorization: loginResponse.data.access_token,
+                ...cancelForm.getHeaders(),
+            },
+        }
+    );
+    if(cancelResponse.data.success === "1"){
+      await Order.findByIdAndUpdate(orderId, { status: "Cancelled" });
+    }
+
+        return res.status(200).json({ data: cancelResponse.data, success: true });
     } catch (error) {
         console.error('Error canceling shipment:', error);
         res.status(500).json({ message: 'Failed to cancel shipment', success: false });

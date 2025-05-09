@@ -10,7 +10,9 @@ import FormData from 'form-data';
 dotenv.config();
 
 const transporter = nodemailer.createTransport({
-    service: 'smtp.aromagicperfume.com', // Or your SMTP provider
+    host: 'mail.aromagicperfume.com', // Or your SMTP provider
+    port: 587,
+    secure: false, // true if you use port 465
     auth: {
         user: process.env.SMTP_EMAIL,
         pass: process.env.SMTP_PASSWORD,
@@ -319,10 +321,10 @@ export const addOrder = async (req, res) => {
         });
 
         await order.save();
-        // const customer = await Customer.findById(customerId);
-        // if (customer?.email) {
-        //   await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
-        // }
+        const customer = await Customer.findById(customerId);
+        if (customer?.email) {
+          await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
+        }
 
         res.status(201).json({ order, success: true });
     } catch (error) {
@@ -663,6 +665,20 @@ export const deleteOrder = async (req, res) => {
     } catch (error) {
         console.error('Error deleting order:', error);
         res.status(500).json({ message: 'Failed to delete order', success: false });
+    }
+};
+
+export const cancelOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await Order.findByIdAndUpdate(id, { status: "Cancelled" });;
+        if (!order) {
+            return res.status(404).json({ message: "Order not found", success: false });
+        }
+        res.status(200).json({ order, success: true });
+    } catch (error) {
+        console.error('Error cancel order:', error);
+        res.status(500).json({ message: 'Failed to cancel order', success: false });
     }
 };
 

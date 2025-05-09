@@ -13,6 +13,6 @@ router.route("/checkPincode/:pincode").get(checkPincode);
 router.route("/createShipment").post(createShipment);
 router.route("/getOrderShipment").post(getOrderShipment);
 router.route("/trackShipment/:trackingId").get(trackShipment);
-router.route("/cancelShipment/:trackingId").post(cancelShipment);
+router.route("/cancelShipment").post(cancelShipment);
 
 export default router;
