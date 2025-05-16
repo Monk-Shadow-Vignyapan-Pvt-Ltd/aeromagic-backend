@@ -5,12 +5,12 @@ export const addCoupon = async (req, res) => {
     try {
         const {
             code, type, value, minOrder,
-            productIds,categoryIds, usageLimit, isActive,showOnOfferBar,
-            expiresAt, assignedTo, buy, get
+            productIds,categoryIds, usageLimit, isActive,showOnOfferBar,usePerCustomer,
+            expiresAt, buy, get
         } = req.body;
 
         // Check for required fields
-        if (!code || !type) {
+        if (!code || !type ) {
             return res.status(400).json({ message: 'Code and type are required', success: false });
         }
 
@@ -27,10 +27,11 @@ export const addCoupon = async (req, res) => {
             productIds,
             categoryIds,
             usageLimit,
+            usePerCustomer,
             isActive,
             showOnOfferBar,
             expiresAt,
-            assignedTo, buy, get
+             buy, get
         });
 
         await coupon.save();
@@ -74,7 +75,7 @@ export const getFilteredCoupons = async (req, res) => {
 export const getCouponById = async (req, res) => {
     try {
         const { id } = req.params;
-        const coupon = await Coupon.findById(id).populate('productIds').populate('assignedTo');
+        const coupon = await Coupon.findById(id).populate('productIds');
         if (!coupon) return res.status(404).json({ message: 'Coupon not found', success: false });
         res.status(200).json({ coupon, success: true });
     } catch (error) {
@@ -118,7 +119,7 @@ export const validateCoupon = async (req, res) => {
         const { code, customerId, cartTotal, productIds,cartItems } = req.body;
 
         const coupon = await Coupon.findOne({ code, isActive: true }).populate('get.products.productId')
-        .lean();;
+        .lean();
         if (!coupon) return res.status(404).json({ message: 'Invalid or expired coupon', success: false });
 
         let validItems = cartItems;
@@ -134,11 +135,19 @@ export const validateCoupon = async (req, res) => {
             return res.status(400).json({ message: 'Coupon usage limit exceeded', success: false });
         }
 
-        // Check if assigned to this customer (if assignedTo is not empty)
-        if (coupon.assignedTo?.length && !coupon.assignedTo.includes(customerId)) {
-            return res.status(403).json({ message: 'Coupon not assigned to this Customer', success: false });
+        // Check per-customer usage limit
+        if (coupon.usePerCustomer && coupon.usedBy?.length) {
+            const customerUsage = coupon.usedBy.find(entry => entry.customerId.toString() === customerId);
+
+            if (customerUsage && customerUsage.count >= coupon.usePerCustomer) {
+                return res.status(400).json({
+                    message: `You have already used this coupon ${coupon.usePerCustomer} time(s)`,
+                    success: false
+                });
+            }
         }
 
+        
         // Check cart value
         if (cartTotal < coupon.minOrder) {
             return res.status(400).json({ message: `Minimum order value is ₹${coupon.minOrder}`, success: false });

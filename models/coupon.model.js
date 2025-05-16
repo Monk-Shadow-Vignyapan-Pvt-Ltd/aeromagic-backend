@@ -15,11 +15,15 @@ const couponSchema = new mongoose.Schema({
     variationPrice: { type: mongoose.Schema.Types.Mixed, default: null } // optional
   }],
   usageLimit: { type: Number, default: 0 }, // 0 means unlimited
+  usePerCustomer: { type: Number, default: 0 }, // 0 means unlimited
   usedCount: { type: Number, default: 0 },
+  usedBy: [{
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer' },
+  count: { type: Number, default: 0 }
+  }],
   isActive: { type: Boolean, default: true },
   showOnOfferBar: { type: Boolean, default: true },
   expiresAt: { type: Date },
-  assignedTo: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Customer' }],
 
   // Buy X Get Y Specific Fields
   buy: {
