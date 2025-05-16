@@ -45,13 +45,45 @@ export const addCoupon = async (req, res) => {
 // Get all coupons
 export const getCoupons = async (req, res) => {
     try {
-        const coupons = await Coupon.find();
-        res.status(200).json({ coupons, success: true });
+        const { search = "" } = req.query;
+        const page = parseInt(req.query.page) || 1;
+        const limit = 10;
+
+        const searchFilter = {};
+
+        if (search) {
+            searchFilter.$or = [
+                { code: { $regex: search, $options: "i" } },
+                { type: { $regex: search, $options: "i" } },
+            ];
+        }
+
+        const totalCoupons = await Coupon.countDocuments(searchFilter);
+        const totalPages = Math.ceil(totalCoupons / limit) || 1;
+        const currentPage = Math.min(page, totalPages);
+        const skip = (currentPage - 1) * limit;
+
+        const coupons = await Coupon.find(searchFilter)
+            .sort({ _id: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            coupons,
+            success: true,
+            pagination: {
+                currentPage,
+                totalPages,
+                totalCoupons,
+            },
+        });
+
     } catch (error) {
         console.error('Error fetching coupons:', error);
         res.status(500).json({ message: 'Failed to fetch coupons', success: false });
     }
 };
+
 
 export const getFilteredCoupons = async (req, res) => {
     try {
@@ -97,6 +129,63 @@ export const updateCoupon = async (req, res) => {
     } catch (error) {
         console.error('Error updating coupon:', error);
         res.status(500).json({ message: 'Failed to update coupon', success: false });
+    }
+};
+
+// Update coupon usage count and track customer usage
+export const updateCouponUsage = async (req, res) => {
+    try {
+        const { couponId, customerId } = req.body;
+
+        if (!couponId || !customerId) {
+            return res.status(400).json({ 
+                message: 'Coupon ID and customer ID are required', 
+                success: false 
+            });
+        }
+
+        const coupon = await Coupon.findById(couponId);
+        if (!coupon) {
+            return res.status(404).json({ 
+                message: 'Coupon not found', 
+                success: false 
+            });
+        }
+
+        // Check if customer has already used this coupon
+        const customerUsageIndex = coupon.usedBy.findIndex(
+            entry => entry.customerId.toString() === customerId
+        );
+
+        // Update usedCount
+        coupon.usedCount += 1;
+
+        // Update usedBy array
+        if (customerUsageIndex >= 0) {
+            // Increment existing customer's count
+            coupon.usedBy[customerUsageIndex].count += 1;
+        } else {
+            // Add new customer entry
+            coupon.usedBy.push({
+                customerId,
+                count: 1
+            });
+        }
+
+        await coupon.save();
+
+        res.status(200).json({ 
+            message: 'Coupon usage updated successfully', 
+            success: true,
+            coupon 
+        });
+
+    } catch (error) {
+        console.error('Error updating coupon usage:', error);
+        res.status(500).json({ 
+            message: 'Failed to update coupon usage', 
+            success: false 
+        });
     }
 };
 

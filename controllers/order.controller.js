@@ -322,9 +322,9 @@ export const addOrder = async (req, res) => {
 
         await order.save();
         const customer = await Customer.findById(customerId);
-        if (customer?.email) {
-          await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
-        }
+        // if (customer?.email) {
+        //   await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
+        // }
 
         res.status(201).json({ order, success: true });
     } catch (error) {

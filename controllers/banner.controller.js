@@ -51,6 +51,28 @@ export const getBanners = async (req, res) => {
         console.log(error);
     }
 }
+
+export const getMobileBanners = async (req, res) => {
+    try {
+        const banners = await Banner.find().select("mobileImage bannerUrl");
+        if (!banners) return res.status(404).json({ message: "Banner not found", success: false });
+        return res.status(200).json({ banners });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+export const getDesktopBanners = async (req, res) => {
+    try {
+        const banners = await Banner.find().select("image bannerUrl");
+        if (!banners) return res.status(404).json({ message: "Banner not found", success: false });
+        return res.status(200).json({ banners });
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+
 export const getBannerById = async (req, res) => {
     try {
         const bannerId = req.params.id;
