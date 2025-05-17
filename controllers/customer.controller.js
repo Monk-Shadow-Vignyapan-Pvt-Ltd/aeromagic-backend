@@ -361,17 +361,18 @@ export const googleAuth = async (req, res) => {
 
 
 export const createCashfreeOrder = async (req, res) => {
-  const { orderId, amount, email, phoneNumber, fullname } = req.body;
+  const { orderId, amount, email, phoneNumber, fullname,customerId } = req.body;
 
   try {
     const response = await axios.post(
-      'https://sandbox.cashfree.com/pg/orders', // use prod URL for production
+     // 'https://sandbox.cashfree.com/pg/orders', // use prod URL for production
+      'https://api.cashfree.com/pg/orders',
       {
         order_id: orderId,
         order_amount: amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: "testuser123",
+          customer_id: customerId.toString().slice(-4),
           customer_email: email,
           customer_phone: phoneNumber.toString(),
           customer_name: fullname,
