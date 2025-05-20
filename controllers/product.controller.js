@@ -689,7 +689,7 @@ export const getProductsAfterInSearch = async (req, res) => {
 
         // Fetch services that match the ranked IDs
         const products = await Product.find({ _id: { $in: rankedProductIds } })
-        .select('productName productUrl  productImage');
+        .select('productName productUrl  productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice');
 
     
 

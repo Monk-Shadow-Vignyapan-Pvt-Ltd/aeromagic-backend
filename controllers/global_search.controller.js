@@ -11,13 +11,9 @@ export const globalSearch = async (req, res) => {
     const searchRegex = new RegExp(query, "i"); // Case-insensitive
 
     const collectionsToSearch = {
-      categories: {
-        searchableFields: ["categoryName"],
-        resultFields: ["_id", "categoryName", "thumbnailCategoryImage",],
-      },
       products: {
         searchableFields: ["productName"],
-        resultFields: ["_id", "productName", "productImage","productUrl"],
+        resultFields: ["_id", "productName", "productImage","productUrl variationPrices hasVariations inStock price discount discountType finalSellingPrice"],
       },
     };
 
