@@ -44,7 +44,7 @@ export const getTones = async (req, res) => {
 export const getToneById = async (req, res) => {
     try {
         const toneId = req.params.id;
-        const tone = await Tone.findById(toneId);
+        const tone = await Tone.findById(toneId).select("toneName notes");
         if (!tone) return res.status(404).json({ message: "Tone not found!", success: false });
         return res.status(200).json({ tone, success: true });
     } catch (error) {
