@@ -64,7 +64,7 @@ const sendOrderConfirmationEmail = async (to, orderId, customerName, cartItems) 
             
 
             {/* Fallback for non-animation supporting clients */}
-            <div className="no-animation" style={{
+            <div class="no-animation" style={{
                 display: "none",
                 maxHeight: "0",
                 overflow: "hidden",
@@ -287,7 +287,13 @@ const sendOrderConfirmationEmail = async (to, orderId, customerName, cartItems) 
       `,
     };
 
-    return transporter.sendMail(mailOptions);
+    //return transporter.sendMail(mailOptions);
+     try {
+        await transporter.sendMail(mailOptions);
+        console.log('Contact email sent successfully');
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
 };
 
 // Add a new order
@@ -322,9 +328,9 @@ export const addOrder = async (req, res) => {
 
         await order.save();
         const customer = await Customer.findById(customerId);
-        // if (customer?.email) {
-        //   await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
-        // }
+        if (customer?.email) {
+          await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress.fullName || 'Customer',cartItems);
+        }
 
         res.status(201).json({ order, success: true });
     } catch (error) {

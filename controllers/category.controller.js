@@ -6,7 +6,7 @@ import sharp from 'sharp';
 // Add a new category
 export const addCategory = async (req, res) => {
     try {
-        let { categoryName, categoryDescription, rank, isParent, imageBase64,mobileImage,thumbnailCategoryImage, howToUse, others, userId } = req.body;
+        let { categoryName, categoryDescription, rank, isParent, imageBase64,mobileImage,thumbnailCategoryImage,uspImage, howToUse, others, userId } = req.body;
         // Validate base64 image data
         if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')
             || !thumbnailCategoryImage || !thumbnailCategoryImage.startsWith('data:image')) {
@@ -21,6 +21,7 @@ export const addCategory = async (req, res) => {
             categoryImage: imageBase64, // Store the base64 string in MongoDB
             mobileImage,
             thumbnailCategoryImage,
+            uspImage,
             categoryDescription: req.body.description,
             userId: req.body.userId,
             rank,
@@ -53,7 +54,19 @@ export const getCategories = async (req, res) => {
 export const getCategoryById = async (req, res) => {
     try {
         const categoryId = req.params.id;
-        const category = await Category.findById(categoryId);
+        const category = await Category.findById(categoryId).select("categoryName mobileImage categoryImage others");
+        if (!category) return res.status(404).json({ message: "Category not found!", success: false });
+        return res.status(200).json({ category, success: true });
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({ message: 'Failed to fetch category', success: false });
+    }
+};
+
+export const getCategoryByIdInProduct = async (req, res) => {
+    try {
+        const categoryId = req.params.id;
+        const category = await Category.findById(categoryId).select("categoryName uspImage howToUse");
         if (!category) return res.status(404).json({ message: "Category not found!", success: false });
         return res.status(200).json({ category, success: true });
     } catch (error) {
@@ -66,7 +79,7 @@ export const getCategoryById = async (req, res) => {
 export const updateCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        let { categoryName, imageBase64,mobileImage,thumbnailCategoryImage, rank, isParent, categoryDescription, userId, howToUse, others } = req.body;
+        let { categoryName, imageBase64,mobileImage,thumbnailCategoryImage,uspImage, rank, isParent, categoryDescription, userId, howToUse, others } = req.body;
 
         // Validate base64 image data
         if (!imageBase64 || !imageBase64.startsWith('data:image') || !mobileImage || !mobileImage.startsWith('data:image')
@@ -88,7 +101,8 @@ export const updateCategory = async (req, res) => {
             others,
             ...(imageBase64 && { categoryImage: imageBase64 }), // Only update image if new image is provided
             mobileImage,
-            thumbnailCategoryImage
+            thumbnailCategoryImage,
+            uspImage
         };
 
         const category = await Category.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });

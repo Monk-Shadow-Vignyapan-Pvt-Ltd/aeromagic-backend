@@ -4,33 +4,12 @@ import sharp from 'sharp';
 // Add a new note
 export const addNote = async (req, res) => {
     try {
-        const { noteName, noteImage, noteDescription, noteUrl, userId } = req.body;
+        const { noteName, noteDescription, userId } = req.body;
 
-        // Validate base64 image data
-        if (!noteImage || !noteImage.startsWith('data:image')) {
-            return res.status(400).json({ message: 'Invalid image data', success: false });
-        }
-
-        // Resize and compress the image using sharp
-        let compressedBase64 = "";
-        if (noteImage) {
-            const base64Data = noteImage.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
-
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-                .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-                .toBuffer();
-
-            compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        }
-
-        // Create and save the note in MongoDB
+      
         const note = new Note({
             noteName,
-            noteImage: noteImage ? compressedBase64 : noteImage,
             noteDescription,
-            noteUrl,
             userId,
         });
 
@@ -71,32 +50,11 @@ export const getNoteById = async (req, res) => {
 export const updateNote = async (req, res) => {
     try {
         const { id } = req.params;
-        const { noteName, noteImage, noteDescription, noteUrl, userId } = req.body;
-
-        // Validate base64 image data if provided
-        if (!noteImage || !noteImage.startsWith('data:image')) {
-            return res.status(400).json({ message: 'Invalid image data', success: false });
-        }
-
-        // Resize and compress the image using sharp
-        let compressedBase64 = "";
-        if (noteImage) {
-            const base64Data = noteImage.split(';base64,').pop();
-            const buffer = Buffer.from(base64Data, 'base64');
-
-            const compressedBuffer = await sharp(buffer)
-                .resize(800, 600, { fit: 'inside' }) // Resize to 800x600 max, maintaining aspect ratio
-                .jpeg({ quality: 80 }) // Convert to JPEG with 80% quality
-                .toBuffer();
-
-            compressedBase64 = `data:image/jpeg;base64,${compressedBuffer.toString('base64')}`;
-        }
+        const { noteName, noteDescription, userId } = req.body;
 
         const updatedData = {
             noteName,
-            noteImage: noteImage ? compressedBase64 : noteImage,
             noteDescription,
-            noteUrl,
             userId,
         };
 
