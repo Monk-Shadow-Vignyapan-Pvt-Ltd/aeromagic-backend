@@ -13,7 +13,7 @@ export const globalSearch = async (req, res) => {
     const collectionsToSearch = {
       products: {
         searchableFields: ["productName"],
-        resultFields: ["_id", "productName", "productImage","productUrl variationPrices hasVariations inStock price discount discountType finalSellingPrice"],
+        resultFields: ["_id", "productName", "productImage","productUrl", "variationPrices", "hasVariations", "inStock" ,"price" ,"discount", "discountType", "finalSellingPrice"],
       },
     };
 
