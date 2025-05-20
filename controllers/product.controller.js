@@ -31,7 +31,7 @@ export const addProduct = async (req, res) => {
             tone,
             caution, 
             userId,
-            productUrl,seoTitle,seoDescription, 
+            productUrl,seoTitle,seoDescription, schema
         } = req.body;
 
         // Validate base64 image data for product image
@@ -62,7 +62,7 @@ export const addProduct = async (req, res) => {
             weight,
             shortDescription,
             longDescription,
-            productUrl,seoTitle,seoDescription,
+            productUrl,seoTitle,seoDescription,schema,
             categoryId,
             multiImages,
             hasVariations,
@@ -176,7 +176,7 @@ export const updateProduct = async (req, res) => {
             weight, 
             shortDescription, 
             longDescription, 
-            productUrl, seoTitle,seoDescription,
+            productUrl, seoTitle,seoDescription,schema,
             categoryId, 
             multiImages, 
             hasVariations,
@@ -228,7 +228,7 @@ export const updateProduct = async (req, res) => {
             weight,
             shortDescription,
             longDescription,
-            productUrl,oldUrls,seoTitle,seoDescription,
+            productUrl,oldUrls,seoTitle,seoDescription,schema,
             categoryId,
             multiImages,
             hasVariations,
