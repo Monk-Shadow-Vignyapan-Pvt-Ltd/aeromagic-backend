@@ -272,7 +272,7 @@ export const deleteProduct = async (req, res) => {
 export const getProductsForHome = async (req, res) => {
     try {
         // Fetch products and categories
-        const products = await Product.find().select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl');
+        const products = await Product.find().select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
         const categories = await Category.find().select('categoryName rank');
 
         if (!products.length) return res.status(404).json({ message: "Products not found", success: false });
