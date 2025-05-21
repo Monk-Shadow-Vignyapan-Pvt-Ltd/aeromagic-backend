@@ -362,15 +362,6 @@ export const getProductsByCategory = async (req, res) => {
                 ]
             }));
         }
-
-        if (availability) {
-            const availabilityArray = availability.split(",").map(status => status === "true"); // Convert "true" or "false" strings to actual booleans
-        
-            filter.$or = [
-                { hasVariations: false, inStock: { $in: availabilityArray } }, // For products without variations
-                { hasVariations: true, variationPrices: { $elemMatch: { checked: { $in: availabilityArray } } } } // For products with variations
-            ];
-        }
         
 
         // Pagination
@@ -379,19 +370,53 @@ export const getProductsByCategory = async (req, res) => {
         let sortQuery = { createdAt: -1 };
 
         const pipeline = [
-            { $match: filter },
-            {
-                $addFields: {
-                    computedPrice: {
-                        $cond: {
-                            if: { $eq: ["$hasVariations", true] },
-                            then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
-                            else: "$finalSellingPrice"
-                        }
+            { $match: filter }
+        ];
+
+        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
+        if (availability) {
+            const availabilityArray = availability.split(",").map(status => status === "true");
+
+            pipeline.push({
+                $match: {
+                    $expr: {
+                        $or: [
+                            {
+                                $and: [
+                                    { $eq: ["$hasVariations", false] },
+                                    { $in: ["$inStock", availabilityArray] }
+                                ]
+                            },
+                            {
+                                $and: [
+                                    { $eq: ["$hasVariations", true] },
+                                    {
+                                        $in: [
+                                            { $ifNull: [{ $arrayElemAt: ["$variationPrices.checked", 0] }, false] },
+                                            availabilityArray
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            });
+        }
+
+        // STEP 4: Add computedPrice field
+        pipeline.push({
+            $addFields: {
+                computedPrice: {
+                    $cond: {
+                        if: { $eq: ["$hasVariations", true] },
+                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                        else: "$finalSellingPrice"
                     }
                 }
             }
-        ];
+        });
+
 
         // Sorting Logic
         switch (sortOption) {
@@ -413,7 +438,26 @@ export const getProductsByCategory = async (req, res) => {
         }
 
         // Pagination in aggregation
-        pipeline.push({ $skip: skip }, { $limit: limit });
+       pipeline.push(
+            { $skip: skip },
+            { $limit: limit },
+            {
+                $project: {
+                    productName: 1,
+                    productImage: 1,
+                    hasVariations: 1,
+                    price: 1,
+                    showOnHome: 1,
+                    categoryId: 1,
+                    discount: 1,
+                    discountType: 1,
+                    finalSellingPrice: 1,
+                    variationPrices: 1,
+                    productUrl: 1,
+                    inStock: 1
+                }
+            }
+        );
 
         const products = await Product.aggregate(pipeline);
 
@@ -483,15 +527,6 @@ export const getAllProducts = async (req, res) => {
                 ]
             }));
         }
-
-        if (availability) {
-            const availabilityArray = availability.split(",").map(status => status === "true"); // Convert "true" or "false" strings to actual booleans
-        
-            filter.$or = [
-                { hasVariations: false, inStock: { $in: availabilityArray } }, // For products without variations
-                { hasVariations: true, variationPrices: { $elemMatch: { checked: { $in: availabilityArray } } } } // For products with variations
-            ];
-        }
         
 
         // Pagination
@@ -499,20 +534,54 @@ export const getAllProducts = async (req, res) => {
         const skip = (page - 1) * limit;
         let sortQuery = { createdAt: -1 };
 
-        const pipeline = [
-            { $match: filter },
-            {
-                $addFields: {
-                    computedPrice: {
-                        $cond: {
-                            if: { $eq: ["$hasVariations", true] },
-                            then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
-                            else: "$finalSellingPrice"
-                        }
+         const pipeline = [
+            { $match: filter }
+        ];
+
+        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
+        if (availability) {
+            const availabilityArray = availability.split(",").map(status => status === "true");
+
+            pipeline.push({
+                $match: {
+                    $expr: {
+                        $or: [
+                            {
+                                $and: [
+                                    { $eq: ["$hasVariations", false] },
+                                    { $in: ["$inStock", availabilityArray] }
+                                ]
+                            },
+                            {
+                                $and: [
+                                    { $eq: ["$hasVariations", true] },
+                                    {
+                                        $in: [
+                                            { $ifNull: [{ $arrayElemAt: ["$variationPrices.checked", 0] }, false] },
+                                            availabilityArray
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            });
+        }
+
+        // STEP 4: Add computedPrice field
+        pipeline.push({
+            $addFields: {
+                computedPrice: {
+                    $cond: {
+                        if: { $eq: ["$hasVariations", true] },
+                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                        else: "$finalSellingPrice"
                     }
                 }
             }
-        ];
+        });
+
 
         // Sorting Logic
         switch (sortOption) {
@@ -534,7 +603,26 @@ export const getAllProducts = async (req, res) => {
         }
 
         // Pagination in aggregation
-        pipeline.push({ $skip: skip }, { $limit: limit });
+        pipeline.push(
+            { $skip: skip },
+            { $limit: limit },
+            {
+                $project: {
+                    productName: 1,
+                    productImage: 1,
+                    hasVariations: 1,
+                    price: 1,
+                    showOnHome: 1,
+                    categoryId: 1,
+                    discount: 1,
+                    discountType: 1,
+                    finalSellingPrice: 1,
+                    variationPrices: 1,
+                    productUrl: 1,
+                    inStock: 1
+                }
+            }
+        );
 
         const products = await Product.aggregate(pipeline);
 
