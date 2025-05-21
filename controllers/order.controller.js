@@ -342,13 +342,17 @@ export const addOrder = async (req, res) => {
 // Get all orders
 export const getOrders = async (req, res) => {
     try {
-        const { status = "All", startDate, endDate, page = 1, limit = 12, search = "" } = req.query;
+        const { status = "All", startDate, endDate, page = 1, limit = 12, search = "",orderType= "" } = req.query;
 
         const filter = {};
 
         // Filter by status
         if (status !== "All") {
             filter.status = status;
+        }
+
+        if(orderType){
+            filter.orderType = orderType;
         }
 
         // Filter by date range
