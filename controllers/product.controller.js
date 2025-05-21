@@ -271,49 +271,162 @@ export const deleteProduct = async (req, res) => {
 
 export const getProductsForHome = async (req, res) => {
     try {
-        // Fetch products and categories
-        const products = await Product.find().select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
-        const categories = await Category.find().select('categoryName rank');
+        // Step 1: Get only needed categories
+        const categories = await Category.find({ rank: { $lt: 3 } }).select('categoryName rank');
 
-        if (!products.length) return res.status(404).json({ message: "Products not found", success: false });
+        // Step 2: Get all products that belong to those categories
+        const categoryIds = categories.map(cat => cat._id);
+        const allProducts = await Product.find({ categoryId: { $in: categoryIds } })
+            .select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
-        // Filter categories with rank < 6
-        const filteredProducts = categories
-            .filter(category => parseFloat(category.rank) < 3)
-            .map(category => {
-                let categoryProducts = products.filter(product => product.categoryId.toString() === category._id.toString());
-                
-                // Get products with showOnHome: true
-                let homeProducts = categoryProducts.filter(product => product.showOnHome);
+        // Step 3: Group products by category and prepare response
+        const productsByCategory = categories.map(category => {
+            const categoryProducts = allProducts.filter(p => p.categoryId.toString() === category._id.toString());
 
-                // If homeProducts are less than 8, fill with random category products
-                if (homeProducts.length < 8) {
-                    const remainingCount = 8 - homeProducts.length;
-                    const randomProducts = categoryProducts
-                        .filter(product => !product.showOnHome) // Only take products that are not already in homeProducts
-                        .sort(() => 0.5 - Math.random()) // Shuffle the remaining products
-                        .slice(0, remainingCount); // Get only needed amount
+            let homeProducts = categoryProducts.filter(p => p.showOnHome);
 
-                    homeProducts = [...homeProducts, ...randomProducts]; // Merge both lists
-                } else {
-                    homeProducts = homeProducts.slice(0, 8); // Ensure max 8 products
-                }
+            if (homeProducts.length < 8) {
+                const remainingCount = 8 - homeProducts.length;
+                const additionalProducts = categoryProducts
+                    .filter(p => !p.showOnHome)
+                    .sort(() => 0.5 - Math.random())
+                    .slice(0, remainingCount);
+                homeProducts = [...homeProducts, ...additionalProducts];
+            } else {
+                homeProducts = homeProducts.slice(0, 8);
+            }
 
-                return {
-                    ...category.toObject(), // Convert category document to plain object
-                    products: homeProducts,
-                    reviews: "405",
-                    rating: "4"
-                };
-            });
+            return {
+                ...category.toObject(),
+                products: homeProducts,
+                reviews: "405",
+                rating: "4"
+            };
+        });
 
-        return res.status(200).json({ products: filteredProducts, success: true });
+        return res.status(200).json({ products: productsByCategory, success: true });
 
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ message: 'Failed to fetch products', success: false });
     }
 };
+
+export const getRank1HomeProducts = async (req, res) => {
+    try {
+        const category = await Category.findOne({ rank: 1 }).select('categoryName rank');
+
+        if (!category) {
+            return res.status(404).json({ message: 'Rank 1 category not found', success: false });
+        }
+
+       let homeProducts = await Product.find({
+            categoryId: category._id,
+            showOnHome: true
+        }).select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+
+        // Step 2: If less than 8, fetch random non-showOnHome products from the same category
+        if (homeProducts.length < 8) {
+            const remainingCount = 8 - homeProducts.length;
+
+            const extraProducts = await Product.aggregate([
+                { $match: { categoryId: category._id, showOnHome: { $ne: true } } },
+                { $sample: { size: remainingCount } },
+                {
+                    $project: {
+                        productName: 1,
+                        productImage: 1,
+                        hasVariations: 1,
+                        price: 1,
+                        showOnHome: 1,
+                        categoryId: 1,
+                        discount: 1,
+                        discountType: 1,
+                        finalSellingPrice: 1,
+                        variationPrices: 1,
+                        productUrl: 1,
+                        inStock: 1
+                    }
+                }
+            ]);
+
+            homeProducts = [...homeProducts, ...extraProducts];
+        } else {
+            homeProducts = homeProducts.slice(0, 8);
+        }
+
+        return res.status(200).json({
+            category: category.categoryName,
+            products: homeProducts,
+            reviews: "405",
+            rating: "4",
+            success: true
+        });
+
+    } catch (error) {
+        console.error('Error fetching rank 1 home products:', error);
+        res.status(500).json({ message: 'Failed to fetch rank 1 home products', success: false });
+    }
+};
+
+export const getRank2HomeProducts = async (req, res) => {
+    try {
+        const category = await Category.findOne({ rank: 2 }).select('categoryName rank');
+
+        if (!category) {
+            return res.status(404).json({ message: 'Rank 2 category not found', success: false });
+        }
+
+        let homeProducts = await Product.find({
+            categoryId: category._id,
+            showOnHome: true
+        }).select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+
+        // Step 2: If less than 8, fetch random non-showOnHome products from the same category
+        if (homeProducts.length < 8) {
+            const remainingCount = 8 - homeProducts.length;
+
+            const extraProducts = await Product.aggregate([
+                { $match: { categoryId: category._id, showOnHome: { $ne: true } } },
+                { $sample: { size: remainingCount } },
+                {
+                    $project: {
+                        productName: 1,
+                        productImage: 1,
+                        hasVariations: 1,
+                        price: 1,
+                        showOnHome: 1,
+                        categoryId: 1,
+                        discount: 1,
+                        discountType: 1,
+                        finalSellingPrice: 1,
+                        variationPrices: 1,
+                        productUrl: 1,
+                        inStock: 1
+                    }
+                }
+            ]);
+
+            homeProducts = [...homeProducts, ...extraProducts];
+        } else {
+            homeProducts = homeProducts.slice(0, 8);
+        }
+
+        return res.status(200).json({
+            category: category.categoryName,
+            products: homeProducts,
+            reviews: "405",
+            rating: "4",
+            success: true
+        });
+
+    } catch (error) {
+        console.error('Error fetching rank 2 home products:', error);
+        res.status(500).json({ message: 'Failed to fetch rank 2 home products', success: false });
+    }
+};
+
+
 
 export const getProductsByCategory = async (req, res) => {
     try {

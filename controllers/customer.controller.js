@@ -365,7 +365,7 @@ export const createCashfreeOrder = async (req, res) => {
 
   try {
     const response = await axios.post(
-     // 'https://sandbox.cashfree.com/pg/orders', // use prod URL for production
+      //'https://sandbox.cashfree.com/pg/orders', // use prod URL for production
       'https://api.cashfree.com/pg/orders',
       {
         order_id: orderId,
@@ -388,12 +388,40 @@ export const createCashfreeOrder = async (req, res) => {
       }
     );
 
-    res.json({ success: true, paymentSessionId: response.data.payment_session_id });
+    res.json({ success: true, paymentSessionId: response.data.payment_session_id ,order_id:orderId});
   } catch (error) {
     console.error('Cashfree Order Error:', error.response?.data || error.message);
     res.status(500).json({ success: false, message: 'Failed to create order' });
   }
 };
+
+// Node.js/Express
+export const verifyCashfree = async (req, res) => {
+    const { order_id } = req.body;
+    try {
+        const response = await axios.get(
+            //`https://sandbox.cashfree.com/pg/orders/${order_id}`, // use prod URL for production
+            `https://api.cashfree.com/pg/orders/${order_id}`,
+            {
+        headers: {
+          'x-api-version': '2022-09-01',
+          'x-client-id': process.env.CASHFREE_APP_ID,
+          'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+
+        if (response.data.order_status === "PAID") {
+            return res.json({ success: true, paymentStatus: "PAID" });
+        } else {
+            return res.json({ success: false, paymentStatus: response.data.order_status });
+        }
+    } catch (error) {
+        console.error("Cashfree verify error:", error.response?.data || error);
+        res.status(500).json({ success: false, message: "Verification failed" });
+    }
+};
+
 
 
 
