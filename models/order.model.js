@@ -80,6 +80,10 @@ const orderSchema = new mongoose.Schema({
         type: String,
         required: false
     },
+    returnItems:{
+        type: mongoose.Schema.Types.Mixed,
+        required: false 
+    },
 }, { timestamps: true });
 
 export const Order = mongoose.model("Order", orderSchema);

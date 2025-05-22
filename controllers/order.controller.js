@@ -637,20 +637,13 @@ export const getOrdersByCustomerId = async (req, res) => {
 export const updateOrder = async (req, res) => {
     try {
         const { id } = req.params;
-        const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage } = req.body;
+        const { returnItems } = req.body;
 
-        const updatedData = {
-            customerId,
-            orderType,
-            cartItems,
-            status,
-            shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage
-        };
-
-        const order = await Order.findByIdAndUpdate(id, updatedData, {
-            new: true,
-            runValidators: true
-        });
+        const order = await Order.findByIdAndUpdate(
+            id,
+            { returnItems }, // ✅ only updating this field
+            { new: true, runValidators: true }
+        );
 
         if (!order) {
             return res.status(404).json({ message: "Order not found", success: false });
@@ -662,6 +655,7 @@ export const updateOrder = async (req, res) => {
         res.status(400).json({ message: error.message, success: false });
     }
 };
+
 
 // Delete order by ID
 export const deleteOrder = async (req, res) => {
