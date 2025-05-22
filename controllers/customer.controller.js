@@ -96,12 +96,44 @@ export const getCustomer = async (req, res) => {
 
 export const getCustomers = async (req, res) => {
     try {
-        const customers = await Customer.find();
-        if (!customers) return res.status(404).json({ message: "customers not found", success: false });
-        return res.status(200).json({ customers });
+        const { page = 1, search = "" } = req.query;
+        const limit = 10;
+        const skip = (page - 1) * limit;
+
+        // Create a search filter
+        const searchFilter = {};
+
+        // Apply search filter
+        if (search) {
+            searchFilter.$or = [
+              { fullname: { $regex: search, $options: "i" } },
+              { email: { $regex: search, $options: "i" } },
+              { phoneNumber: { $regex: search.toString(), $options: "i" } }  // Convert phoneNumber to string for regex matching
+            ];
+          }
+          
+
+        // Fetch all matching products (without pagination)
+        const allCustomers = await Customer.find(searchFilter);
+
+        // Apply pagination
+        const paginatedCustomers = await Customer.find(searchFilter)
+            .sort({ _id: -1 }) // Sort newest first
+            .skip(skip)
+            .limit(limit);
+
+        res.status(200).json({
+            customers: paginatedCustomers,
+            success: true,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(allCustomers.length / limit),
+                totalCustomers: allCustomers.length,
+            },
+        });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: 'Failed to fetch customers', success: false });
+        console.error("Error fetching customers:", error);
+        res.status(500).json({ message: "Failed to fetch customers", success: false });
     }
 };
 

@@ -377,6 +377,7 @@ export const getOrders = async (req, res) => {
         const totalOrders = await Order.countDocuments(filter);
         // Fetch orders
         const orders = await Order.find(filter)
+            .select('-returnItems')
             .populate("customerId")
             .sort({ createdAt: -1 })
             .skip(skip)
@@ -696,3 +697,100 @@ export const getOrderStatuses = async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch order statuses', success: false });
     }
 };
+
+export const getReturnOrders = async (req, res) => {
+    try {
+        const {
+            approvalStatus = "",
+            startDate,
+            endDate,
+            page = 1,
+            limit = 12,
+            search = "",
+            orderType = "",
+            returnType = ""
+        } = req.query;
+
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        const baseFilter = {
+            returnItems: { $exists: true, $ne: [] } // Only orders with return items
+        };
+
+        // Filter inside returnItems object
+        if (approvalStatus) {
+            baseFilter["returnItems.approvalStatus"] = approvalStatus;
+        }
+
+        if (returnType) {
+            baseFilter["returnItems.returnType"] = returnType;
+        }
+
+        if (orderType) {
+            baseFilter.orderType = orderType;
+        }
+
+        if (startDate && endDate) {
+            baseFilter.createdAt = {
+                $gte: new Date(startDate),
+                $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+            };
+        }
+
+        // Fetch all orders matching base filters
+        let allOrders = await Order.find(baseFilter)
+            .populate("customerId")
+            .sort({ createdAt: -1 });
+
+        // Prioritize search by customer name
+        if (search.trim() !== "") {
+            const lowerSearch = search.toLowerCase();
+            allOrders = allOrders.filter(order =>
+                order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
+            );
+        }
+
+        const totalOrders = allOrders.length;
+
+        // Paginate after filtering
+        const paginatedOrders = allOrders.slice(skip, skip + parseInt(limit));
+
+        // Enrich return items with product images
+        const enrichedOrders = await Promise.all(paginatedOrders.map(async (order) => {
+            const updatedItems = await Promise.all(order.returnItems.items.map(async (item) => {
+                try {
+                    let cleanProductId = item.id;
+                    if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+                        cleanProductId = item.id.split("_")[0];
+                    }
+                    const product = await Product.findById(cleanProductId).select("productImage");
+                    return { ...item, img: product?.productImage || null };
+                } catch (err) {
+                    console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+                    return item;
+                }
+            }));
+
+            return {
+                ...order.toObject(),
+                returnItems: {
+                    ...order.returnItems,
+                    items: updatedItems
+                }
+            };
+        }));
+
+        res.status(200).json({
+            orders: enrichedOrders,
+            totalPages: Math.ceil(totalOrders / limit),
+            currentPage: parseInt(page),
+            success: true
+        });
+
+    } catch (error) {
+        console.error("Error fetching return orders:", error);
+        res.status(500).json({ message: "Failed to fetch return orders", success: false });
+    }
+};
+
+

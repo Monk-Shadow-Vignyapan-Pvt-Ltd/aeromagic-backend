@@ -1,5 +1,6 @@
 import express from "express";
-import { addOrder, getOrders, getOrderById,getOrdersByCustomerId, deleteOrder,cancelOrder, updateOrder,getOrderStatuses} from "../controllers/order.controller.js";
+import { addOrder, getOrders, getOrderById,getOrdersByCustomerId, deleteOrder,cancelOrder, 
+    updateOrder,getOrderStatuses,getReturnOrders} from "../controllers/order.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -13,5 +14,6 @@ router.route("/updateOrder/:id").post( updateOrder);
 router.route("/deleteOrder/:id").delete(deleteOrder);
 router.route("/cancelOrder/:id").post(cancelOrder);
 router.route("/getOrderStatuses").get( getOrderStatuses);
+router.route("/getReturnOrders").get( getReturnOrders);
 
 export default router;
