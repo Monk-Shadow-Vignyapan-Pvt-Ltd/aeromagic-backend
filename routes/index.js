@@ -32,6 +32,7 @@ import orderRoute from "./order.route.js";
 import offerBannerRoute from "./offerBanner.route.js";
 import tagRoute from "./tag.route.js";
 import ctaRoute from "./cta.route.js";
+import reviewRoute from "./review.route.js";
 
 const routes = {
   categoryRoute,
@@ -67,7 +68,8 @@ const routes = {
   orderRoute,
   offerBannerRoute,
   tagRoute,
-  ctaRoute
+  ctaRoute,
+  reviewRoute
 };
 
 export default routes;
