@@ -2,22 +2,35 @@ import { Review } from '../models/review.model.js';
 
 // Add a new review
 export const addReview = async (req, res) => {
-    try {
-        const { customer, product, rating, comment } = req.body;
+  try {
+    const { customer, product, rating, comment } = req.body;
 
-        if (!customer || !product || !rating) {
-            return res.status(400).json({ message: 'Customer, product, and rating are required', success: false });
-        }
-
-        const review = new Review({ customer, product, rating, comment });
-        await review.save();
-
-        res.status(201).json({ review, success: true });
-    } catch (error) {
-        console.error('Error adding review:', error);
-        res.status(500).json({ message: 'Failed to add review', success: false });
+    if (!customer || !product || !rating) {
+      return res.status(400).json({ message: 'Customer, product, and rating are required', success: false });
     }
+
+    // Check if a review already exists for this customer-product pair
+    const existingReview = await Review.findOne({ customer, product });
+
+    if (existingReview) {
+      return res.status(200).json({
+        message: 'You have already reviewed this product',
+        review: existingReview,
+        alreadyExists: true,
+        success: true
+      });
+    }
+
+    const review = new Review({ customer, product, rating, comment });
+    await review.save();
+
+    res.status(201).json({ review, success: true });
+  } catch (error) {
+    console.error('Error adding review:', error);
+    res.status(500).json({ message: 'Failed to add review', success: false });
+  }
 };
+
 
 // Get all reviews
 export const getReviews = async (req, res) => {
