@@ -34,14 +34,97 @@ export const addReview = async (req, res) => {
 
 // Get all reviews
 export const getReviews = async (req, res) => {
-    try {
-        const reviews = await Review.find().populate('customer product');
-        res.status(200).json({ reviews });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Failed to fetch reviews', success: false });
-    }
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+    const skip = (page - 1) * limit;
+
+    const searchFilter = search
+      ? {
+          $or: [
+            { "customer.fullname": { $regex: search, $options: "i" } },
+            { "product.productName": { $regex: search, $options: "i" } }
+          ]
+        }
+      : {};
+
+    // Count total
+    const totalResult = await Review.aggregate([
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customer",
+          foreignField: "_id",
+          as: "customer"
+        }
+      },
+      { $unwind: "$customer" },
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      { $unwind: "$product" },
+      { $match: searchFilter },
+      { $count: "count" }
+    ]);
+    const total = totalResult[0]?.count || 0;
+
+    // Get paginated data
+    const reviews = await Review.aggregate([
+      {
+        $lookup: {
+          from: "customers",
+          localField: "customer",
+          foreignField: "_id",
+          as: "customer"
+        }
+      },
+      { $unwind: "$customer" },
+      {
+        $lookup: {
+          from: "products",
+          localField: "product",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      { $unwind: "$product" },
+      { $match: searchFilter },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+            _id: 1,
+            rating: 1,
+            comment: 1,
+            createdAt: 1,
+            "customer._id": 1,
+            "customer.fullname": 1,
+            "product._id": 1,
+            "product.productName": 1
+        }
+        }
+    ]);
+
+    res.status(200).json({
+      reviews,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to fetch reviews", success: false });
+  }
 };
+
+
 
 // Get review by ID
 export const getReviewById = async (req, res) => {
