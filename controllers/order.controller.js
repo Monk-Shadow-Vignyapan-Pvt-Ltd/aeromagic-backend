@@ -525,7 +525,7 @@ export const getOrderById = async (req, res) => {
 export const getOrdersByCustomerId = async (req, res) => {
     try {
         const customerId = req.params.id;
-        const orders = await Order.find({ customerId }).sort({ createdAt: -1 });
+        const orders = await Order.find({ customerId }).select('-returnItems.returnVideo').sort({ createdAt: -1 });
         const loginForm = new FormData();
         loginForm.append("email", process.env.SELLOSHIP_EMAIL);
         loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
