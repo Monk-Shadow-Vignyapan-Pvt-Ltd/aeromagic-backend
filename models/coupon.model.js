@@ -23,6 +23,7 @@ const couponSchema = new mongoose.Schema({
   }],
   isActive: { type: Boolean, default: true },
   showOnOfferBar: { type: Boolean, default: true },
+  showOnSignUp: { type: Boolean, default: false,required:false },
   expiresAt: { type: Date },
 
   // Buy X Get Y Specific Fields

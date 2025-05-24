@@ -1,5 +1,6 @@
 import express from "express";
-import { addCoupon, getCoupons,getFilteredCoupons, getCouponById, deleteCoupon, updateCoupon,updateCouponUsage,validateCoupon} from "../controllers/coupon.controller.js";
+import { addCoupon, getCoupons,getFilteredCoupons, getCouponById, deleteCoupon,
+     updateCoupon,updateCouponUsage,validateCoupon,setCouponForSignUp} from "../controllers/coupon.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -13,5 +14,6 @@ router.route("/updateCoupon/:id").post( updateCoupon);
 router.route("/updateCouponUsage").post( updateCouponUsage);
 router.route("/deleteCoupon/:id").delete(deleteCoupon);
 router.route("/validateCoupon").post( validateCoupon);
+router.route("/setCouponForSignUp/:id").post( setCouponForSignUp);
 
 export default router;

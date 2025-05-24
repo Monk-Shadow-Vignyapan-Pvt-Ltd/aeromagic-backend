@@ -31,7 +31,8 @@ export const addCoupon = async (req, res) => {
             isActive,
             showOnOfferBar,
             expiresAt,
-             buy, get
+             buy, get,
+             showOnSignUp:false
         });
 
         await coupon.save();
@@ -397,5 +398,30 @@ export const validateCoupon = async (req, res) => {
     } catch (error) {
         console.error('Error validating coupon:', error);
         res.status(500).json({ message: 'Coupon validation failed', success: false });
+    }
+};
+
+export const setCouponForSignUp = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // First, set showOnSignUp to false for all coupons
+        await Coupon.updateMany({}, { $set: { showOnSignUp: false } });
+
+        // Then, set showOnSignUp to true for the specified coupon
+        const updatedCoupon = await Coupon.findByIdAndUpdate(
+            id,
+            { showOnSignUp: true },
+            { new: true }
+        );
+
+        if (!updatedCoupon) {
+            return res.status(404).json({ message: 'Coupon not found', success: false });
+        }
+
+        res.status(200).json({ message: 'Coupon set for sign up successfully', coupon: updatedCoupon, success: true });
+    } catch (error) {
+        console.error('Error setting sign-up coupon:', error);
+        res.status(500).json({ message: 'Failed to set sign-up coupon', success: false });
     }
 };
