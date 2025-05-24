@@ -884,27 +884,27 @@ export const getProductInSearch = async (req, res) => {
 
 export const getProductsAfterInSearch = async (req, res) => {
     try {
-        // Fetch the service ranking
         const productRanking = await ProductSearch.findOne().select('ranking');
         if (!productRanking || !productRanking.ranking || productRanking.ranking.length === 0) {
             return res.status(404).json({ message: "No ranked products found", success: false });
         }
 
-        // Extract service IDs from the ranking
         const rankedProductIds = productRanking.ranking.map(item => item.value);
 
-        // Fetch services that match the ranked IDs
-        const products = await Product.find({ _id: { $in: rankedProductIds } ,productEnabled:true})
-        .select('productName productUrl  productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice productEnabled');
-
-    
+        const products = await Product.find({ 
+            _id: { $in: rankedProductIds }, 
+            productEnabled: true 
+        }).select('productName productUrl productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice productEnabled');
 
         if (!products || products.length === 0) {
             return res.status(404).json({ message: "Ranked products not found", success: false });
         }
 
-        // Sort services based on their rank
-        const sortedProducts = rankedProductIds.map(id => products.find(product => product._id.toString() === id));
+        // Build a Map for fast lookup and sort the products
+        const productMap = new Map(products.map(p => [p._id.toString(), p]));
+        const sortedProducts = rankedProductIds
+            .map(id => productMap.get(id))
+            .filter(p => p); // remove nulls
 
         return res.status(200).json({ products: sortedProducts, success: true });
     } catch (error) {
@@ -912,6 +912,7 @@ export const getProductsAfterInSearch = async (req, res) => {
         res.status(500).json({ message: 'Failed to fetch ranked products', success: false });
     }
 };
+
 
 export const setProductOnOff = async (req, res) => {
     try {
