@@ -425,3 +425,25 @@ export const setCouponForSignUp = async (req, res) => {
         res.status(500).json({ message: 'Failed to set sign-up coupon', success: false });
     }
 };
+
+export const setCouponForSignUpFalse = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Then, set showOnSignUp to true for the specified coupon
+        const updatedCoupon = await Coupon.findByIdAndUpdate(
+            id,
+            { showOnSignUp: false },
+            { new: true }
+        );
+
+        if (!updatedCoupon) {
+            return res.status(404).json({ message: 'Coupon not found', success: false });
+        }
+
+        res.status(200).json({ message: 'Coupon set for sign up successfully', coupon: updatedCoupon, success: true });
+    } catch (error) {
+        console.error('Error setting sign-up coupon:', error);
+        res.status(500).json({ message: 'Failed to set sign-up coupon', success: false });
+    }
+};
