@@ -112,7 +112,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       href="https://aromagicperfume.com/"
       aria-label="logo-brand"
       style="text-decoration: none"
-      ><img style="width: 150px; height: auto;" src="https://aromagicperfume.com/Aromagic-Logo.svg" alt="AroMagic Logo"></a>
+      ><img style="width: 150px; height: auto;" src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo"></a>
   </div>
   <h2
     style="
