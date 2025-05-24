@@ -1,36 +1,40 @@
 import { Contact } from '../models/contact.model.js'; // Adjust path based on your file structure
-//import nodemailer from 'nodemailer';
+import nodemailer from 'nodemailer';
+import dotenv from "dotenv";
+dotenv.config();
 
-// const transporter = nodemailer.createTransport({
-//     service: 'gmail',
-//     auth: {
-//         user: 'hello@pinkalhealth.com', // Your email
-//         pass: 'Hello##2425' // Your email password or app password
-//     }
-// });
+const transporter = nodemailer.createTransport({
+    host: 'mail.aromagicperfume.com', // Or your SMTP provider
+    port: 587,
+    secure: false, // true if you use port 465
+    auth: {
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD,
+    },
+});
 
-// const sendContactEmail = async (contact) => {
-//     const mailOptions = {
-//         from: 'hello@pinkalhealth.com',
-//         to: 'Info@pinkalmedicalaesthetics.com',
-//         subject: `New Contact Submission - ${contact.subject || 'No Subject'}`,
-//         html: `
-//             <h3>Contact Details</h3>
-//             <p><strong>Name:</strong> ${contact.name}</p>
-//             <p><strong>Email:</strong> ${contact.email}</p>
-//             <p><strong>Phone:</strong> ${contact.phone}</p>
-//             <p><strong>Message:</strong> ${contact.message}</p>
+const sendContactEmail = async (contact) => {
+    const mailOptions = {
+        from: process.env.SMTP_EMAIL,
+        to: "chirag@monkshadow.com",
+        subject: `New Contact Submission - ${contact.subject || 'No Subject'}`,
+        html: `
+            <h3>Contact Details</h3>
+            <p><strong>Name:</strong> ${contact.name}</p>
+            <p><strong>Email:</strong> ${contact.email}</p>
+            <p><strong>Phone:</strong> ${contact.phone}</p>
+            <p><strong>Message:</strong> ${contact.message}</p>
 
-//         `
-//     };
+        `
+    };
 
-//     try {
-//         await transporter.sendMail(mailOptions);
-//         console.log('Contact email sent successfully');
-//     } catch (error) {
-//         console.error('Error sending email:', error);
-//     }
-// };
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log('Contact email sent successfully');
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
 
 
 // Add a new contact

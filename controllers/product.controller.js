@@ -277,18 +277,18 @@ export const getProductsForHome = async (req, res) => {
         // Step 2: Get all products that belong to those categories
         const categoryIds = categories.map(cat => cat._id);
         const allProducts = await Product.find({ categoryId: { $in: categoryIds } })
-            .select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+            .select('productName productImage hasVariations price showOnHome productEnabled categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
         // Step 3: Group products by category and prepare response
         const productsByCategory = categories.map(category => {
             const categoryProducts = allProducts.filter(p => p.categoryId.toString() === category._id.toString());
 
-            let homeProducts = categoryProducts.filter(p => p.showOnHome);
+            let homeProducts = categoryProducts.filter(p => p.showOnHome && p.productEnabled);
 
             if (homeProducts.length < 8) {
                 const remainingCount = 8 - homeProducts.length;
                 const additionalProducts = categoryProducts
-                    .filter(p => !p.showOnHome)
+                    .filter(p => !p.showOnHome && p.productEnabled)
                     .sort(() => 0.5 - Math.random())
                     .slice(0, remainingCount);
                 homeProducts = [...homeProducts, ...additionalProducts];
@@ -322,15 +322,16 @@ export const getRank1HomeProducts = async (req, res) => {
 
        let homeProducts = await Product.find({
             categoryId: category._id,
-            showOnHome: true
-        }).select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+            showOnHome: true,
+            productEnabled:true,
+        }).select('productName productImage hasVariations price showOnHome productEnabled categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
         // Step 2: If less than 8, fetch random non-showOnHome products from the same category
         if (homeProducts.length < 8) {
             const remainingCount = 8 - homeProducts.length;
 
             const extraProducts = await Product.aggregate([
-                { $match: { categoryId: category._id, showOnHome: { $ne: true } } },
+                { $match: { categoryId: category._id,productEnabled:true, showOnHome: { $ne: true } } },
                 { $sample: { size: remainingCount } },
                 {
                     $project: {
@@ -339,6 +340,7 @@ export const getRank1HomeProducts = async (req, res) => {
                         hasVariations: 1,
                         price: 1,
                         showOnHome: 1,
+                        productEnabled:1,
                         categoryId: 1,
                         discount: 1,
                         discountType: 1,
@@ -379,7 +381,8 @@ export const getRank2HomeProducts = async (req, res) => {
 
         let homeProducts = await Product.find({
             categoryId: category._id,
-            showOnHome: true
+            showOnHome: true,
+            productEnabled:true,
         }).select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
         // Step 2: If less than 8, fetch random non-showOnHome products from the same category
@@ -387,7 +390,7 @@ export const getRank2HomeProducts = async (req, res) => {
             const remainingCount = 8 - homeProducts.length;
 
             const extraProducts = await Product.aggregate([
-                { $match: { categoryId: category._id, showOnHome: { $ne: true } } },
+                { $match: { categoryId: category._id,productEnabled:true, showOnHome: { $ne: true } } },
                 { $sample: { size: remainingCount } },
                 {
                     $project: {
@@ -396,6 +399,7 @@ export const getRank2HomeProducts = async (req, res) => {
                         hasVariations: 1,
                         price: 1,
                         showOnHome: 1,
+                        productEnabled:1,
                         categoryId: 1,
                         discount: 1,
                         discountType: 1,
@@ -442,7 +446,7 @@ export const getProductsByCategory = async (req, res) => {
         }
 
 
-        let filter = { };
+        let filter = {productEnabled:true };
 
         // Apply filters dynamically
         filter.categoryId = new mongoose.Types.ObjectId(id);
@@ -607,7 +611,7 @@ export const getAllProducts = async (req, res) => {
         const { brand, tone, availability, price, occasion, gender, rating, page = 1,sortOption } = req.query;
 
 
-        let filter = { };
+        let filter = {productEnabled:true };
 
         // Apply filters dynamically
         if (brand) filter.brand = brand;
@@ -776,7 +780,8 @@ export const getProductsHeader = async (req, res) => {
             const products = await Product.aggregate([
                 {
                     $match: {
-                        categoryId: new mongoose.Types.ObjectId(category._id)
+                        categoryId: new mongoose.Types.ObjectId(category._id),
+                        productEnabled:true
                     }
                 },
                 { $sample: { size: 4 } },
@@ -889,8 +894,8 @@ export const getProductsAfterInSearch = async (req, res) => {
         const rankedProductIds = productRanking.ranking.map(item => item.value);
 
         // Fetch services that match the ranked IDs
-        const products = await Product.find({ _id: { $in: rankedProductIds } })
-        .select('productName productUrl  productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice');
+        const products = await Product.find({ _id: { $in: rankedProductIds } ,productEnabled:true})
+        .select('productName productUrl  productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice productEnabled');
 
     
 
@@ -905,5 +910,30 @@ export const getProductsAfterInSearch = async (req, res) => {
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Failed to fetch ranked products', success: false });
+    }
+};
+
+export const setProductOnOff = async (req, res) => {
+    try {
+        const { id } = req.params;
+         const { 
+            productEnabled
+        } = req.body;
+
+        // Then, set showOnSignUp to true for the specified coupon
+        const updatedProduct = await Product.findByIdAndUpdate(
+            id,
+            { productEnabled },
+            { new: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Product not found', success: false });
+        }
+
+        res.status(200).json({ product: updatedProduct, success: true });
+    } catch (error) {
+        console.error('Error updating product:', error);
+        res.status(500).json({ message: 'Failed to update product', success: false });
     }
 };

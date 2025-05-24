@@ -13,19 +13,39 @@ export const globalSearch = async (req, res) => {
     const collectionsToSearch = {
       products: {
         searchableFields: ["productName"],
-        resultFields: ["_id", "productName", "productImage","productUrl", "variationPrices", "hasVariations", "inStock" ,"price" ,"discount", "discountType", "finalSellingPrice"],
+        resultFields: [
+          "_id",
+          "productName",
+          "productImage",
+          "productUrl",
+          "variationPrices",
+          "hasVariations",
+          "inStock",
+          "price",
+          "discount",
+          "discountType",
+          "finalSellingPrice"
+        ],
+        additionalFilter: { productEnabled: true } // 👈 Add this
       },
     };
 
     const searchResults = {};
     let totalResultsCount = 0;
 
-    for (const [collectionName, { searchableFields, resultFields }] of Object.entries(collectionsToSearch)) {
+    for (const [collectionName, { searchableFields, resultFields, additionalFilter = {} }] of Object.entries(collectionsToSearch)) {
       const collection = mongoose.connection.collection(collectionName);
 
       const searchConditions = searchableFields.map((field) => ({
         [field]: searchRegex,
       }));
+
+      const queryFilter = {
+        $and: [
+          { $or: searchConditions },
+          additionalFilter
+        ],
+      };
 
       const projection = resultFields.reduce((acc, field) => {
         acc[field] = 1;
@@ -33,7 +53,7 @@ export const globalSearch = async (req, res) => {
       }, {});
 
       const results = await collection
-        .find({ $or: searchConditions }, { projection })
+        .find(queryFilter, { projection })
         .toArray();
 
       totalResultsCount += results.length;

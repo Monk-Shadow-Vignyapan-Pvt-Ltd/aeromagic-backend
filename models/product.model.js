@@ -89,6 +89,10 @@ const productSchema = new mongoose.Schema({
           required:false
       },
       productUrl: { type: String, required: true ,unique: true },
+      productEnabled:{
+      type: Boolean,  
+      required: false,
+      },
      oldUrls: {
         type: mongoose.Schema.Types.Mixed,  // Use Mixed for flexible structure (JSON-like object)
         required: false
