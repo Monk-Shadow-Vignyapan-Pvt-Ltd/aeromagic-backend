@@ -23,6 +23,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
     const mailOptions = {
         from: process.env.SMTP_EMAIL,
         to,
+        cc:process.env.CC_EMAIL,
         subject: `Your Order ${orderId} has been placed!`,
         html: `
         <!DOCTYPE html>
@@ -111,7 +112,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
     <a
       href="https://aromagicperfume.com/"
       aria-label="logo-brand"
-      style="text-decoration: none"
+      style="text-decoration: none; margin-left: auto; margin-right: auto;"
       ><img style="width: 150px; height: auto;" src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo"></a>
   </div>
   <h2
@@ -344,7 +345,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       color: rgb(107, 114, 128);
     "
   >
-    <p>Follow us: Instagram | Facebook | Twitter</p>
+    <p>Follow us: <a href="https://www.instagram.com/aromagicliveperfume/">Instagram</a> | <a href="https://www.facebook.com/people/Aromagic-Live-Perfume/61550288920678/#">Facebook</a> </p>
     <p style="margin-top: 8px">
       Need help?
       <a

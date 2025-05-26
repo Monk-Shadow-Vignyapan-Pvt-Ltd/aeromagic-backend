@@ -4,6 +4,131 @@ import bcryptjs from "bcryptjs";
 import sharp from 'sharp';
 import { oauth2Client } from '../utils/googleClient.js';
 import axios from "axios";
+import nodemailer from 'nodemailer';
+import dotenv from "dotenv";
+import {Coupon} from '../models/coupon.model.js';
+
+dotenv.config();
+
+const transporter = nodemailer.createTransport({
+    host: 'mail.aromagicperfume.com', // Or your SMTP provider
+    port: 587,
+    secure: false, // true if you use port 465
+    auth: {
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD,
+    },
+});
+
+const sendOrderConfirmationEmail = async (to, fullname ) => {
+     const signupCoupon = await Coupon.findOne({ showOnSignUp: true });
+
+  let couponDetails = "";
+  if (signupCoupon) {
+    if (signupCoupon.type === "fixed" || signupCoupon.type === "percent") {
+      couponDetails = `
+        <span style="margin-top: 4px; line-height: 1.5; font-weight: 700;">
+          ${signupCoupon.value}${signupCoupon.type === "percent" ? "%" : " INR"} Flat Discount On Minimum Purchase Of 1 Product
+        </span>
+      `;
+    } else if (signupCoupon.type === "buy_x_get_y") {
+      const buyList = signupCoupon.buy.products
+        .map(item => {
+          const name = item?.productId?.productName || "Unknown";
+          const variation = item.variationPrice?.value ? ` - ${item.variationPrice.value}` : "";
+          return `<li>${name}${variation} x ${item.quantity}</li>`;
+        })
+        .join("");
+
+      const getList = signupCoupon.get.products
+        .map(item => {
+          const name = item?.productId?.productName || "Unknown";
+          const variation = item.variationPrice?.value ? ` - ${item.variationPrice.value}` : "";
+          return `<li>${name}${variation} x ${item.quantity} @ ${item.discountPercent}% off</li>`;
+        })
+        .join("");
+
+      couponDetails = `
+        <div style="margin-top: 8px">
+          <strong>Buy:</strong>
+          <ul style="list-style-type: disc; padding-left: 20px">${buyList}</ul>
+        </div>
+        <div style="margin-top: 8px">
+          <strong>Get:</strong>
+          <ul style="list-style-type: disc; padding-left: 20px">${getList}</ul>
+        </div>
+      `;
+    }
+  }
+
+  const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f9fafb;">
+  <div style="background-color: #ffffff; color: #1f2937; font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
+    <div style="text-align: center; margin-bottom: 32px;">
+      <a href="https://aromagicperfume.com/"><img src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo" style="width: 150px; height: auto;"></a>
+    </div>
+    <p style="font-size: 18px; line-height: 1.5;">Hi <strong>${fullname}</strong>,</p>
+    <p style="margin-top: 8px; line-height: 1.5;">Welcome to the world of <strong>AroMagic Perfume</strong> ✨</p>
+    <p style="margin-top: 8px; line-height: 1.5;">Your account has been successfully created and you're now a part of a fragrance-loving community that believes every scent tells a story.</p>
+
+    <div style="margin-top: 24px;">
+      <h2 style="font-size: 18px; font-weight: 600; color: #111827; margin-bottom: 8px;">What Awaits You:</h2>
+      <ul style="list-style-type: disc; padding-left: 24px; color: #374151; line-height: 1.5;">
+        <li>✨ Exclusive launches &amp; limited editions</li>
+        <li>🕯️ Personalized perfume recommendations</li>
+        <li>🎁 Members-only offers &amp; early-bird deals</li>
+        <li>📦 A seamless shopping experience</li>
+      </ul>
+    </div>
+
+    <div style="margin-top: 24px; background-color: #fdf2f8; border: 1px solid #fbcfe8; padding: 16px; border-radius: 8px;">
+      <h3 style="color: #be185d; font-weight: 600;">A Gift for You 🎁</h3>
+      <div style="margin-top: 8px;">
+        <span style="color: #9d174d; font-weight: 700;">${signupCoupon?.code || ''}</span>
+        ${couponDetails}
+      </div>
+      <a href="https://aromagicperfume.com/" style="display: inline-block; margin-top: 16px; padding: 8px 20px; background-color: #db2777; color: #ffffff; border-radius: 8px; font-weight: 500; text-decoration: none;">Shop Now</a>
+    </div>
+
+    <div style="margin-top: 32px; font-style: italic; border-left: 4px solid #f472b6; padding-left: 16px; color: #374151; line-height: 1.5;">
+      <p>"At AroMagic, we believe fragrance is more than a scent — it's a feeling, a memory, a way to express who you are. Each perfume in our collection is crafted to elevate your mood and make every moment magical. Thank you for joining us on this scented journey — we're excited to share the magic with you."</p>
+      <p style="margin-top: 16px; font-style: normal; font-weight: 600;">— Team AroMagic</p>
+    </div>
+
+    <div style="margin-top: 40px; text-align: center; font-size: 14px; color: #6b7280;">
+      <p>Follow us: <a href="https://www.instagram.com/aromagicliveperfume/">Instagram</a> | <a href="https://www.facebook.com/people/Aromagic-Live-Perfume/61550288920678/#">Facebook</a></p>
+      <p style="margin-top: 8px;">Need help? <a href="mailto:support@aromagicperfume.com" style="color: #db2777; text-decoration: underline;">support@aromagicperfume.com</a></p>
+      <p style="margin-top: 16px;">© 2025 AroMagic Perfume</p>
+      <div style="margin-top: 4px;">
+        <a href="#" style="text-decoration: underline; margin-right: 8px;">Privacy Policy</a> |
+        <a href="#" style="text-decoration: underline; margin-left: 8px;">Unsubscribe</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+`;
+    const mailOptions = {
+        from: process.env.SMTP_EMAIL,
+        to,
+        cc:process.env.CC_EMAIL,
+        subject: `Welcome to AroMagic, ${fullname}!`,
+        html: htmlContent,
+    };
+
+    //return transporter.sendMail(mailOptions);
+     try {
+        await transporter.sendMail(mailOptions);
+        console.log('Sign Up email sent successfully');
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+};
 
 
 // Signup Controller
@@ -26,6 +151,10 @@ export const register = async (req, res) => {
             password: hashedPassword,
             authType: "local"
         });
+
+        if (email) {
+          await sendOrderConfirmationEmail(email, fullname);
+        }
 
         return res.status(201).json({
             message: "Account created successfully.",
@@ -375,6 +504,9 @@ export const googleAuth = async (req, res) => {
               image: picture,
               authType: "social", // Mark it as a Google login
           });
+          if (email) {
+          await sendOrderConfirmationEmail(email, name);
+        }
       }
 
       const { _id } = customer;
