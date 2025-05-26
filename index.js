@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import bodyParser from "body-parser";
 import routes from "./routes/index.js";
+import {updateOrderStatusesAndSendEmails} from "./controllers/order.controller.js"
 
 dotenv.config();
 // connect db
@@ -65,6 +66,8 @@ app.use("/api/v1/offerBanners", routes.offerBannerRoute);
 app.use("/api/v1/tags", routes.tagRoute);
 app.use("/api/v1/ctas", routes.ctaRoute);
 app.use("/api/v1/reviews", routes.reviewRoute);
+
+updateOrderStatusesAndSendEmails();
 
 app.listen(PORT, () => {
     console.log(`server running at port ${PORT}`);

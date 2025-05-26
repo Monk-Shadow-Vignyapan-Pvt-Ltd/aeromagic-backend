@@ -2,9 +2,20 @@ import axios from "axios";
 import dotenv from "dotenv";
 import qs from 'qs';
 import FormData from 'form-data';
-import { Order } from '../models/order.model.js'; 
+import { Order } from '../models/order.model.js';
+import nodemailer from 'nodemailer'; 
 
 dotenv.config();
+
+const transporter = nodemailer.createTransport({
+    host: 'mail.aromagicperfume.com', // Or your SMTP provider
+    port: 587,
+    secure: false, // true if you use port 465
+    auth: {
+        user: process.env.SMTP_EMAIL,
+        pass: process.env.SMTP_PASSWORD,
+    },
+});
 
 const BASE_URL = process.env.BASE_URL;
 const PIN_URL = process.env.PINCODE_URL;
@@ -501,6 +512,7 @@ export const cancelShipment = async (req, res) => {
     );
     if(cancelResponse.data.success === "1"){
       await Order.findByIdAndUpdate(orderId, { status: "Cancelled" });
+      await cancelOrderMail();
     }
 
         return res.status(200).json({ data: cancelResponse.data, success: true });
@@ -509,3 +521,356 @@ export const cancelShipment = async (req, res) => {
         res.status(500).json({ message: 'Failed to cancel shipment', success: false });
     }
 };
+
+
+const cancelOrderMail = async (order) => {
+  const cancelOrder = await Order.findOne({_id :order._id})
+      .select('-returnItems')
+      .populate("customerId");
+       const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f9fafb;">
+    <div
+      style="
+        background-color: rgb(255, 255, 255);
+        font-family: Arial, sans-serif;
+        color: rgb(51, 51, 51);
+        width: 100%;
+        max-width: 600px;
+        margin: 0px auto;
+        padding: 24px;
+        border-radius: 8px;
+        border: 1px solid rgb(229, 231, 235);
+      "
+    >
+      <style>
+        @media screen and (max-width: 600px) {
+          .email-container {
+            width: 100% !important;
+          }
+        }
+        @keyframes flap-left {
+          0% {
+            transform: rotate(-10deg);
+          }
+          100% {
+            transform: rotate(0deg);
+          }
+        }
+        @keyframes flap-right {
+          0% {
+            transform: rotate(10deg);
+          }
+          100% {
+            transform: rotate(0deg);
+          }
+        }
+        .left-wing {
+          animation: flap-left 1s infinite alternate ease-in-out;
+          transform-origin: 40% 50%;
+        }
+        .right-wing {
+          animation: flap-right 1s infinite alternate ease-in-out;
+          transform-origin: 60% 60%;
+        }
+        /* Fallback for email clients that don't support animations */
+        .no-animation .left-wing,
+        .no-animation .right-wing {
+          animation: none !important;
+        }
+        /* Reset some email client styles */
+        .ExternalClass,
+        .ReadMsgBody {
+          width: 100%;
+        }
+        .ExternalClass,
+        .ExternalClass p,
+        .ExternalClass span,
+        .ExternalClass font,
+        .ExternalClass td,
+        .ExternalClass div {
+          line-height: 100%;
+        }
+      </style>
+      <div
+        class="no-animation"
+        style="
+          display: none;
+          max-height: 0px;
+          overflow: hidden;
+          visibility: hidden;
+        "
+      >
+        Your email client doesn't support animations. Here's a static version of
+        our logo.
+      </div>
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 32px;
+        "
+      >
+         <a href="https://aromagicperfume.com/" style="text-decoration: none; margin-left: auto; margin-right: auto;"><img src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo" style="width: 150px; height: auto;"></a>
+      </div>
+      <h2
+        style="
+          font-size: 22px;
+          font-weight: 600;
+          text-align: center;
+          margin-bottom: 24px;
+        "
+      >
+        Order Cancelled Successfully
+      </h2>
+      <div style="font-size: 14px; line-height: 1.6; margin-bottom: 24px">
+        <p>Hi <strong>${cancelOrder.customerId.fullname}</strong>,</p>
+        <p>
+          Your Order <strong>${cancelOrder.orderId}</strong> has been <strong>Cancelled</strong>.
+        </p>
+        
+      </div>
+     <table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="
+      border: 1px solid rgb(229, 231, 235);
+      border-radius: 8px;
+      margin-bottom: 24px;
+    "
+  >
+    <tr>
+      <td style="padding: 16px">
+        <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px">
+          Order Summary
+        </h3>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0">
+          <thead>
+            <tr>
+              <th
+                align="left"
+                style="
+                  padding: 8px 0px;
+                  font-weight: 600;
+                  border-bottom: 1px solid rgb(229, 231, 235);
+                "
+              >
+                Product
+              </th>
+              <th
+                align="left"
+                style="
+                  padding: 8px 0px;
+                  font-weight: 600;
+                  border-bottom: 1px solid rgb(229, 231, 235);
+                "
+              >
+                Quantity
+              </th>
+              <th
+                align="right"
+                style="
+                  padding: 8px 0px;
+                  font-weight: 600;
+                  border-bottom: 1px solid rgb(229, 231, 235);
+                "
+              >
+                Price
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+           ${cancelOrder.cartItems
+        .map(
+          (item) => `
+<tr>
+  <td
+    style="padding: 8px 0px; border-bottom: 1px solid rgb(229, 231, 235);"
+  >
+    ${item.name}
+  </td>
+  <td
+    style="padding: 8px 0px; border-bottom: 1px solid rgb(229, 231, 235);"
+  >
+    ${item.quantity}
+  </td>
+  <td
+    align="right"
+    style="padding: 8px 0px; border-bottom: 1px solid rgb(229, 231, 235);"
+  >
+    ₹${item.price * item.quantity}
+  </td>
+</tr>`
+        )
+        .join('')}
+          </tbody>
+        </table>
+        <table
+          width="100%"
+          cellpadding="0"
+          cellspacing="0"
+          border="0"
+          style="margin-top: 16px"
+        >
+          <tr>
+            <td align="right">
+              <p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Subtotal:</span> ₹${cancelOrder.subtotal}
+              </p>
+               <p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Discount:</span> ₹${cancelOrder.totalDiscount}
+              </p>
+              <p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Coupon Discount:</span> ₹${cancelOrder.couponDiscount}
+              </p>
+              <p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Shipping:</span> ₹${cancelOrder.shippingCharge}
+              </p>
+               ${cancelOrder.giftPacking ? `<p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+              <span style="font-weight: 600">Gift Packing:</span> ₹100
+              </p>` : ""}
+              <p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  font-weight: 600;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Total:</span> ₹${cancelOrder.finalTotal}
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+  <table
+    width="100%"
+    cellpadding="0"
+    cellspacing="0"
+    border="0"
+    style="margin-bottom: 24px"
+  >
+    
+  </table>
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td
+        align="center"
+        style="padding-top: 32px; font-size: 14px; color: rgb(107, 114, 128)"
+      >
+        Thank you for shopping with AroMagic Perfume ✨ <br />
+      </td>
+    </tr>
+  </table>
+      <div
+        style="
+          margin-top: 40px;
+          text-align: center;
+          font-size: 14px;
+          color: rgb(107, 114, 128);
+        "
+      >
+        <p>Follow us: <a href="https://www.instagram.com/aromagicliveperfume/">Instagram</a> | <a href="https://www.facebook.com/people/Aromagic-Live-Perfume/61550288920678/#">Facebook</a></p>
+        <p style="margin-top: 8px">
+          Need help?
+          <a
+            href="mailto:support@aromagicperfume.com"
+            style="color: rgb(219, 39, 119); text-decoration: underline"
+            >support@aromagicperfume.com</a
+          >
+        </p>
+        <p style="margin-top: 16px">© 2025 AroMagic Perfume</p>
+        <div style="margin-top: 4px">
+          <a href="#" style="text-decoration: underline; margin-right: 8px"
+            >Privacy Policy</a
+          >
+          |
+          <a href="#" style="text-decoration: underline; margin-left: 8px"
+            >Unsubscribe</a
+          >
+        </div>
+      </div>
+    </div>
+</body>
+</html>
+`;
+    const mailOptions = {
+        from: process.env.SMTP_EMAIL,
+        to : cancelOrder.customerId.email,
+        cc:process.env.CC_EMAIL,
+        subject: `Your Order ${cancelOrder.orderId} has been Cancelled!`,
+        html: htmlContent,
+    };
+
+    //return transporter.sendMail(mailOptions);
+     try {
+        await transporter.sendMail(mailOptions);
+        console.log('Return/Exchange Approve email sent successfully');
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+  
+}

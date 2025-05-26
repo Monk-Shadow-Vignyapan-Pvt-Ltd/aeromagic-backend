@@ -21,7 +21,12 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendOrderConfirmationEmail = async (to, fullname ) => {
-     const signupCoupon = await Coupon.findOne({ showOnSignUp: true });
+     const signupCoupon = await Coupon.findOne({ isActive: true, showOnSignUp: true })
+        .populate('categoryIds', 'categoryName') // direct array of ObjectIds
+        .populate('productIds.productId', 'productName') // array of subdocs
+        .populate('buy.products.productId', 'productName')
+        .populate('get.products.productId', 'productName')
+        .lean();
 
   let couponDetails = "";
   if (signupCoupon) {
@@ -36,7 +41,7 @@ const sendOrderConfirmationEmail = async (to, fullname ) => {
         .map(item => {
           const name = item?.productId?.productName || "Unknown";
           const variation = item.variationPrice?.value ? ` - ${item.variationPrice.value}` : "";
-          return `<li>${name}${variation} x ${item.quantity}</li>`;
+          return `<li>${name} - ${variation} x ${item.quantity}</li>`;
         })
         .join("");
 
@@ -44,7 +49,7 @@ const sendOrderConfirmationEmail = async (to, fullname ) => {
         .map(item => {
           const name = item?.productId?.productName || "Unknown";
           const variation = item.variationPrice?.value ? ` - ${item.variationPrice.value}` : "";
-          return `<li>${name}${variation} x ${item.quantity} @ ${item.discountPercent}% off</li>`;
+          return `<li>${name} - ${variation} x ${item.quantity} @ ${item.discountPercent}% off</li>`;
         })
         .join("");
 
@@ -70,7 +75,7 @@ const sendOrderConfirmationEmail = async (to, fullname ) => {
 <body style="margin: 0; padding: 0; background-color: #f9fafb;">
   <div style="background-color: #ffffff; color: #1f2937; font-family: Arial, sans-serif; padding: 24px; max-width: 600px; margin: 0 auto; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
     <div style="text-align: center; margin-bottom: 32px;">
-      <a href="https://aromagicperfume.com/"><img src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo" style="width: 150px; height: auto;"></a>
+      <a href="https://aromagicperfume.com/" style="text-decoration: none; margin-left: auto; margin-right: auto;"><img src="https://aromagicperfume.com/AroMagicLogo.png" alt="AroMagic Logo" style="width: 150px; height: auto;"></a>
     </div>
     <p style="font-size: 18px; line-height: 1.5;">Hi <strong>${fullname}</strong>,</p>
     <p style="margin-top: 8px; line-height: 1.5;">Welcome to the world of <strong>AroMagic Perfume</strong> ✨</p>
