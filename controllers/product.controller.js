@@ -3,6 +3,8 @@ import { Category } from '../models/category.model.js';
 import sharp from 'sharp';
 import mongoose from "mongoose";
 import { ProductSearch } from '../models/product_search.model.js';
+import { create } from 'xmlbuilder2';
+import fs from "fs";
 
 // Add a new product
 export const addProduct = async (req, res) => {
@@ -938,3 +940,86 @@ export const setProductOnOff = async (req, res) => {
         res.status(500).json({ message: 'Failed to update product', success: false });
     }
 };
+
+export const getProductFeeds = async (req, res) => {
+    try {
+        const products = await Product.find({ productEnabled: true });
+
+        const categoryMap = {};
+            const categoryIds = [...new Set(products.map(p => p.categoryId.toString()))];
+            const categories = await Category.find({ _id: { $in: categoryIds } }).select("categoryName");
+
+            categories.forEach(cat => {
+            categoryMap[cat._id.toString()] = cat.categoryName;
+            });
+
+            const items = products.map(p => {
+            const categoryName = categoryMap[p.categoryId?.toString()] || 'uncategorized';
+            const categorySlug = categoryName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, '') // remove non-alphanumeric characters
+            .replace(/\s+/g, '-'); // replace spaces with hyphens
+
+            return {
+                'g:id': p._id.toString(),
+                'g:title': p.productName,
+                'g:description': p.productDescription,
+                'g:link': `https://aromagicperfume.com/${categorySlug}/${p.productUrl}`,
+                'g:image_link': `https://api.aromagicperfume.com/api/v1/products/product-image/${p._id}`, // see note below
+                'g:price': `${p.finalSellingPrice} INR`,
+                'g:availability': p.inStock ? 'in stock' : 'out of stock',
+            };
+            });
+
+            const feedObj = {
+            rss: {
+                '@version': '2.0',
+                '@xmlns:g': 'http://base.google.com/ns/1.0',
+                channel: {
+                title: 'Aromagic Perfume',
+                link: 'https://aromagicperfume.com/',
+                description: 'Product feed',
+                item: items,
+                },
+            },
+            };
+
+            const xml = create(feedObj).end({ prettyPrint: true });
+
+             const feedPath = "../../../public_html/dist/feed.xml" // Save in `public` folder
+             fs.writeFileSync(feedPath, xml,'utf8');
+             res.status(200).json({ message: 'Feed generated successfully', itemCount: items.length });
+           
+    } catch (error) {
+        console.error('Error generating feed:', error);
+          res.status(500).send('Error generating feed');
+    }
+};
+
+export const getProductImageUrl = async (req, res) => {
+   try {
+ const productId = req.params.id;
+const product = await Product.findById(productId).select("productImage");
+if (!product || !product.productImage) {
+return res.status(404).send('Image not found');
+}
+const matches = product.productImage.match(/^data:(.+);base64,(.+)$/);
+if (!matches) {
+  return res.status(400).send('Invalid image format');
+}
+
+const mimeType = matches[1];
+const base64Data = matches[2];
+const buffer = Buffer.from(base64Data, 'base64');
+
+res.set('Content-Type', mimeType);
+res.send(buffer);
+
+} catch (err) {
+console.error('Image route error:', err);
+res.status(500).send('Error loading image');
+}
+
+};
+

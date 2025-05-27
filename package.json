@@ -23,6 +23,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "form-data": "^4.0.2",
+    "fs": "^0.0.1-security",
     "googleapis": "^148.0.0",
     "jsonwebtoken": "^9.0.2",
     "moment": "^2.30.1",
@@ -35,6 +36,7 @@
     "sharp": "^0.33.5",
     "string-strip-html": "^13.4.8",
     "unzipper": "^0.12.3",
-    "xml2js": "^0.6.2"
+    "xml2js": "^0.6.2",
+    "xmlbuilder2": "^3.1.1"
   }
 }

@@ -2,7 +2,8 @@ import express from "express";
 import { addProduct, getProducts, getProductById,getProductByUrl, deleteProduct, updateProduct,getProductsForHome,
      getRank1HomeProducts,getRank2HomeProducts,
      getProductsByCategory,getAllProducts,getProductsHeader,updateShowOnHomeProduct,getProductIds,
-     addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff} from "../controllers/product.controller.js";
+     addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff,getProductFeeds,
+     getProductImageUrl} from "../controllers/product.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -26,5 +27,7 @@ router.route("/addProductInSearch").post( addProductInSearch);
 router.route("/getProductInSearch").get(getProductInSearch);
 router.route("/getProductsAfterInSearch").get(getProductsAfterInSearch);
 router.route("/setProductOnOff/:id").post( setProductOnOff);
+router.route("/getProductFeeds").get( getProductFeeds);
+router.route("/product-image/:id").get( getProductImageUrl);
 
 export default router;

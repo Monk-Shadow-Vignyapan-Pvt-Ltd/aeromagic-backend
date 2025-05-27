@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import bodyParser from "body-parser";
 import routes from "./routes/index.js";
-import {updateOrderStatusesAndSendEmails} from "./controllers/order.controller.js"
+import {updateOrderStatusesAndSendEmails} from "./controllers/order.controller.js";
 
 dotenv.config();
 // connect db
@@ -20,15 +20,27 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(urlencoded({extended:true}));
 app.use(cookieParser());
 
-app.use(cors({
-  origin: "*", // Specify the frontend's origin
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "x-auth-token"],
-  credentials: true, // Allow credentials if needed
-}));
-
-// Explicitly handle OPTIONS method for preflight
-app.options("*", cors()); // Allow preflight requests
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "https://aromagicperfume.com",
+      "https://console.aromagicperfume.com",
+      "https://api.aromagicperfume.com",
+    ], // Allow both domains
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "x-auth-token",
+    ],
+    credentials: true, // Allow cookies and authentication headers
+  })
+);
 
 // api's route
 app.use("/api/v1/auth", routes.authRoute);

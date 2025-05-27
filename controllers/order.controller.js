@@ -1339,8 +1339,8 @@ export const updateOrderStatusesAndSendEmails = async () => {
 };
 
 // Schedule the job: every day at 9 PM
-cron.schedule("0 9 * * *", () => {
-  console.log("Running order status update cron at 9 AM");
+cron.schedule("0 21 * * *", () => {
+  console.log("Running order status update cron at 9 PM");
   updateOrderStatusesAndSendEmails();
 });
 
