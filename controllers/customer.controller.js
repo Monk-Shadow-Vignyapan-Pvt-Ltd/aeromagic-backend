@@ -270,50 +270,6 @@ export const getCustomers = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch customers", success: false });
     }
 };
-
-
-export const resetPassword = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { email,password,existPassword, fullname, phoneNumber} = req.body;
-  
-        // Validate base64 image data if provided
-        if (!email || !existPassword  || !fullname ) {
-            return res.status(400).json({ msg: "Please enter all the fields" });
-          }
-  
-          const userMatch = await Customer.findOne({ email });
-          if (!userMatch) {
-            return res
-              .status(400)
-              .send({ msg: "Customer with this email does not exist" });
-          }
-      
-          const isMatch = await bcryptjs.compare(existPassword, userMatch.password);
-          if (!isMatch) {
-            return res.status(400).send({ msg: "Incorrect Existing password." });
-          }
-          if (password.length < 6) {
-            return res
-              .status(400)
-              .json({ msg: "Password should be at least 6 characters" });
-          }
-    
-      
-          const hashedPassword = await bcryptjs.hash(password, 8);
-      
-         
-  
-        const updatedData = { email,password: hashedPassword, fullname, phoneNumber};
-  
-        const customer = await Customer.findByIdAndUpdate(id, updatedData, { new: true, runValidators: true });
-        if (!customer) return res.status(404).json({ message: "customer not found!", success: false });
-        return res.status(200).json({ customer, success: true });
-    } catch (error) {
-        console.log(error);
-        res.status(400).json({ message: error.message, success: false });
-    }
-  };
   
   export const deleteCustomer = async (req, res) => {
       try {
@@ -488,6 +444,109 @@ export const updatePhoneNo = async (req, res) => {
     }
 };
 
+export const updatePassword = async (req, res) => {
+  try {
+      const { id } = req.params;
+      const { password,existPassword} = req.body;
+
+      // Validate base64 image data if provided
+      if (  !existPassword ) {
+          return res.status(400).json({ msg: "Please enter all the fields" });
+        }
+
+        const userMatch = await Customer.findById(id);
+        if (!userMatch) {
+          return res
+            .status(400)
+            .send({ msg: "Customer does not exist" });
+        }
+    
+        const isMatch = await bcryptjs.compare(existPassword, userMatch.password);
+        if (!isMatch) {
+          return res.status(400).send({ msg: "Incorrect Existing password." });
+        }
+        if (password.length < 6) {
+          return res
+            .status(400)
+            .json({ msg: "Password should be at least 6 characters" });
+        }
+  
+    
+        const hashedPassword = await bcryptjs.hash(password, 8);
+
+         const customer = await Customer.findByIdAndUpdate(
+            id,
+            { password: hashedPassword},
+            { new: true, runValidators: true }
+        );
+        if (!customer) return res.status(404).json({ message: "customer not found!", success: false });
+    
+        return res.status(200).json({ customer, success: true });
+  } catch (error) {
+      console.log(error);
+      res.status(400).json({ message: error.message, success: false });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email is required" });
+
+    const customer = await Customer.findOne({ email });
+    if (!customer)
+      return res.status(404).json({ message: "Customer not found" });
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = jwt.sign(
+      { id: customer._id },
+      process.env.JWT_RESET_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // Save token and expiry
+    customer.resetPasswordToken = resetToken;
+    customer.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await customer.save();
+
+    // Send email with token
+    await sendPasswordResetEmail(email, customer, resetToken);
+
+    res
+      .status(200)
+      .json({ message: "Reset link sent to email", success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!password) return res.status(400).json({ message: "Password is required" });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_RESET_SECRET);
+    } catch (err) {
+      return res.status(400).json({ message: "Invalid or expired token" });
+    }
+
+    const customer = await Customer.findById(decoded.id);
+    if (!customer) return res.status(404).json({ message: "User not found" });
+
+    customer.password = await bcryptjs.hash(password, 8);
+    await customer.save();
+
+    res.status(200).json({ message: "Password reset successful", success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
 export const googleAuth = async (req, res) => {
   const code = req.query.code;
   try {
@@ -590,6 +649,49 @@ export const verifyCashfree = async (req, res) => {
         res.status(500).json({ success: false, message: "Verification failed" });
     }
 };
+
+const sendPasswordResetEmail = async (to, customer, resetToken) => {
+  const resetUrl = `https://aromagicperfume.com/reset-password/${resetToken}`;
+
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f9fafb;">
+    <div style="background-color: #ffffff; padding: 24px; max-width: 600px; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <a href="https://aromagicperfume.com/"><img src="https://aromagicperfume.com/AroMagicLogo.png" alt="Logo" style="width: 150px;"></a>
+      </div>
+      <p style="font-size: 18px;">Hi ${customer.fullname},</p>
+      <p style="font-size: 16px;">Click the link below to reset your password:</p>
+      <p><a href="${resetUrl}" style="color: #1d4ed8;">Reset Password</a></p>
+      <p>If you didn't request this, just ignore this email.</p>
+      <div style="margin-top: 40px; text-align: center; font-size: 14px; color: #6b7280;">
+        <p>Follow us: <a href="https://www.instagram.com/aromagicliveperfume/">Instagram</a> | <a href="https://www.facebook.com/people/Aromagic-Live-Perfume/61550288920678/#">Facebook</a></p>
+        <p>Need help? <a href="mailto:support@aromagicperfume.com">support@aromagicperfume.com</a></p>
+        <p>© 2025 AroMagic Perfume</p>
+      </div>
+    </div>
+  </body>
+  </html>`;
+
+  const mailOptions = {
+    from: process.env.SMTP_EMAIL,
+    to,
+    subject: "Password Reset Request",
+    html: htmlContent,
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log("Password reset email sent successfully");
+  } catch (error) {
+    console.error("Error sending email:", error);
+  }
+};
+
 
 
 
