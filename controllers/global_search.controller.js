@@ -24,7 +24,8 @@ export const globalSearch = async (req, res) => {
           "price",
           "discount",
           "discountType",
-          "finalSellingPrice"
+          "finalSellingPrice",
+          "categoryId"
         ],
         additionalFilter: { productEnabled: true } // 👈 Add this
       },

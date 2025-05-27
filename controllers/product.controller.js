@@ -159,7 +159,28 @@ export const getProductByUrl = async (req, res) => {
         const productUrl = req.params.id;
         const product = await Product.findOne({productUrl})
         if (!product) return res.status(404).json({ message: "Product not found!", success: false });
-        return res.status(200).json({ product, success: true });
+        const randomProducts = await Product.aggregate([
+        { $match: { _id: { $ne: product._id }, productEnabled: true } },
+        { $sample: { size: 6 } },
+        {
+                    $project: {
+                        productName: 1,
+                        productImage: 1,
+                        hasVariations: 1,
+                        price: 1,
+                        showOnHome: 1,
+                        productEnabled:1,
+                        categoryId: 1,
+                        discount: 1,
+                        discountType: 1,
+                        finalSellingPrice: 1,
+                        variationPrices: 1,
+                        productUrl: 1,
+                        inStock: 1
+                    }
+                }
+        ]);
+        return res.status(200).json({ product,relatedProducts: randomProducts, success: true });
     } catch (error) {
         console.log(error);
         res.status(500).json({ message: 'Failed to fetch product', success: false });
@@ -896,7 +917,7 @@ export const getProductsAfterInSearch = async (req, res) => {
         const products = await Product.find({ 
             _id: { $in: rankedProductIds }, 
             productEnabled: true 
-        }).select('productName productUrl productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice productEnabled');
+        }).select('productName categoryId productUrl productImage variationPrices hasVariations inStock price discount discountType finalSellingPrice productEnabled');
 
         if (!products || products.length === 0) {
             return res.status(404).json({ message: "Ranked products not found", success: false });

@@ -328,6 +328,16 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       </td>
     </tr>
   </table>
+   <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td
+        align="center"
+        style="padding-top: 32px; font-size: 14px; color: rgb(107, 114, 128)"
+      >
+        GST No. 24ABJFR1038F1ZG <br />
+      </td>
+    </tr>
+  </table>
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td
