@@ -139,6 +139,41 @@ export const getProducts = async (req, res) => {
     }
 };
 
+export const getPaginationProducts = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const totalProducts = await Product.countDocuments();
+
+    const paginatedProducts = await Product.find().select("-multiImages")
+      .sort({ _id: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const enrichedProducts = await Promise.all(
+      paginatedProducts.map(async (product) => ({
+        ...product.toObject(), // Convert Mongoose doc to plain object
+        productImage: `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`,
+      }))
+    );
+
+    res.status(200).json({
+      products: enrichedProducts,
+      success: true,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(totalProducts / limit),
+        totalProducts,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({ message: "Failed to fetch products", success: false });
+  }
+};
+
+
 
 
 // Get product by ID
@@ -959,6 +994,109 @@ export const setProductOnOff = async (req, res) => {
     } catch (error) {
         console.error('Error updating product:', error);
         res.status(500).json({ message: 'Failed to update product', success: false });
+    }
+};
+
+export const getProductsByCollection = async (req, res) => {
+    try {
+        let { collection_id, page = 1,limit =10, } = req.query;
+        page = parseInt(page);
+        limit = parseInt(limit);
+
+        if (!collection_id || collection_id === "undefined") {
+            const firstCategory = await Category.findOne().sort({ createdAt: 1 });
+            if (!firstCategory) {
+                return res.status(404).json({ message: "No categories found", success: false });
+            }
+            collection_id = firstCategory._id.toString();
+        }
+
+
+        let filter = {productEnabled:true };
+
+        // Apply filters dynamically
+        filter.categoryId = new mongoose.Types.ObjectId(collection_id);
+        const skip = (page - 1) * limit;
+        let sortQuery = { createdAt: -1 };
+
+        const pipeline = [
+            { $match: filter }
+        ];
+
+        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
+        // STEP 4: Add computedPrice field
+        pipeline.push({
+            $addFields: {
+                computedPrice: {
+                    $cond: {
+                        if: { $eq: ["$hasVariations", true] },
+                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                        else: "$finalSellingPrice"
+                    }
+                }
+            }
+        });
+
+
+        // Sorting Logic
+       pipeline.push({ $sort: { createdAt: -1 } });
+
+        // Pagination in aggregation
+       pipeline.push(
+            { $skip: skip },
+            { $limit: limit },
+            {
+                $project: {
+                    productName: 1,
+                    productImage: 1,
+                    hasVariations: 1,
+                    price: 1,
+                    showOnHome: 1,
+                    categoryId: 1,
+                    discount: 1,
+                    discountType: 1,
+                    finalSellingPrice: 1,
+                    variationPrices: 1,
+                    productUrl: 1,
+                    inStock: 1
+                }
+            }
+        );
+
+        const products = await Product.aggregate(pipeline);
+
+        if (!products.length) return res.status(200).json({
+            products:[],
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: 1,
+                totalProducts:0,
+            }
+        });
+
+        const totalProducts = await Product.countDocuments(filter);
+
+        const enrichedProducts = await Promise.all(
+            products.map(async (product) => ({
+                    ...product, // ✅ OK - product is already a plain object
+                    productImage: `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`,
+                }))
+            );
+
+        res.status(200).json({
+            products:enrichedProducts,
+            success: true,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages: Math.ceil(totalProducts / limit),
+                totalProducts,
+            }
+        });
+
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ message: 'Failed to fetch products', success: false });
     }
 };
 

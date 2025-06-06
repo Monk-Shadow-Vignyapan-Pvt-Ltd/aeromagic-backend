@@ -196,3 +196,63 @@ export const getCategoriesFrontend = async (req, res) => {
     }
 };
 
+export const getCategoryImageUrl = async (req, res) => {
+   try {
+ const categoryId = req.params.id;
+const category = await Category.findById(categoryId).select("categoryImage");
+if (!category || !category.categoryImage) {
+return res.status(404).send('Image not found');
+}
+const matches = category.categoryImage.match(/^data:(.+);base64,(.+)$/);
+if (!matches) {
+  return res.status(400).send('Invalid image format');
+}
+
+const mimeType = matches[1];
+const base64Data = matches[2];
+const buffer = Buffer.from(base64Data, 'base64');
+
+res.set('Content-Type', mimeType);
+res.send(buffer);
+
+} catch (err) {
+console.error('Image route error:', err);
+res.status(500).send('Error loading image');
+}
+
+};
+
+export const getCollections = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const totalCollections = await Category.countDocuments();
+
+    const paginatedCollections = await Category.find().select("-mobileImage -thumbnailCategoryImage -uspImage -howToUse -others")
+      .sort({ _id: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const enrichedCollectionss = await Promise.all(
+      paginatedCollections.map(async (category) => ({
+        ...category.toObject(), // Convert Mongoose doc to plain object
+        categoryImage: `https://api.aromagicperfume.com/api/v1/categories/getCategoryImageUrl/${category._id}`,
+      }))
+    );
+
+    res.status(200).json({
+      collections: enrichedCollectionss,
+      success: true,
+      pagination: {
+        currentPage: Number(page),
+        totalPages: Math.ceil(totalCollections / limit),
+        totalCollections,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching collections:", error);
+    res.status(500).json({ message: "Failed to fetch collections", success: false });
+  }
+};
+

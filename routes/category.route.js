@@ -1,5 +1,7 @@
 import express from "express";
-import { addCategory, getCategories, getCategoryById,getCategoryByIdInProduct, deleteCategory, updateCategory,updateCategoryRank,getCategoriesIds,getCategoriesFrontend} from "../controllers/category.controller.js";
+import { addCategory, getCategories, getCategoryById,getCategoryByIdInProduct, deleteCategory,
+     updateCategory,updateCategoryRank,getCategoriesIds,getCategoriesFrontend,
+    getCategoryImageUrl,getCollections} from "../controllers/category.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -14,5 +16,7 @@ router.route("/updateCategoryRank").post( updateCategoryRank);
 router.route("/deleteCategory/:id").delete(deleteCategory);
 router.route("/getCategoriesIds").get( getCategoriesIds);
 router.route("/getCategoriesFrontend").get( getCategoriesFrontend);
+router.route("/getCategoryImageUrl/:id").get( getCategoryImageUrl);
+router.route("/getCollections").get( getCollections);
 
 export default router;
