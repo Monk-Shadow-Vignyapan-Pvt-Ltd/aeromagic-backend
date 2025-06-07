@@ -4,19 +4,13 @@ import sharp from 'sharp';
 // Add a new variation
 export const addVariation = async (req, res) => {
     try {
-        const { variationName, variationIcon, variationUrl, categories, variationValues, userId } = req.body;
-
-        // Validate base64 image data
-        if ((!variationIcon || !variationIcon.startsWith('data:image')) ) {
-            return res.status(400).json({ message: 'Invalid image data', success: false });
-        }
+        const { variationName, variationUrl, categories, variationValues, userId } = req.body;
 
        
 
         // Create and save the variation details in MongoDB
         const variation = new Variation({
             variationName,
-            variationIcon: variationIcon,
             variationUrl,
             categories,
             variationValues,
@@ -60,18 +54,10 @@ export const getVariationById = async (req, res) => {
 export const updateVariation = async (req, res) => {
     try {
         const { id } = req.params;
-        const { variationName, variationIcon, variationUrl, categories, variationValues, userId } = req.body;
-
-        // Validate base64 image data if provided
-        if ((!variationIcon || !variationIcon.startsWith('data:image')) ) {
-            return res.status(400).json({ message: 'Invalid image data', success: false });
-        }
-
-        
+        const { variationName, variationUrl, categories, variationValues, userId } = req.body;
 
         const updatedData = {
             variationName,
-            variationIcon: variationIcon,
             variationUrl,
             categories,
             variationValues,

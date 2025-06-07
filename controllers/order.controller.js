@@ -561,14 +561,16 @@ export const getOrders = async (req, res) => {
       const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
         try {
           let cleanProductId = item.id;
+          let variationIndex = 0;
           if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
             cleanProductId = item.id.split("_")[0];
+            variationIndex = item.id.split("_")[1];
           }
 
-          const product = await Product.findById(cleanProductId).select("productImage"); // or item._id if it's stored directly
+          const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
           return {
             ...item,
-            img: product?.productImage || null, // fallback if img is not found
+            img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null, // fallback if img is not found
           };
         } catch (err) {
           console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
@@ -699,15 +701,16 @@ export const getOrdersByCustomerId = async (req, res) => {
       const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
         try {
           let cleanProductId = item.id;
-
+          let variationIndex = 0;
           if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
             cleanProductId = item.id.split("_")[0];
+            variationIndex = item.id.split("_")[1];
           }
 
-          const product = await Product.findById(cleanProductId).select("productImage"); // or item._id if it's stored directly
+          const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
           return {
             ...item,
-            img: product?.productImage || null, // fallback if img is not found
+            img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null,
           };
         } catch (err) {
           console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);

@@ -146,7 +146,7 @@ export const getPaginationProducts = async (req, res) => {
 
     const totalProducts = await Product.countDocuments();
 
-    const paginatedProducts = await Product.find().select("-multiImages")
+    const paginatedProducts = await Product.find().select("-multiImages -variationPrices")
       .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -403,9 +403,25 @@ export const getRank1HomeProducts = async (req, res) => {
                         discount: 1,
                         discountType: 1,
                         finalSellingPrice: 1,
-                        variationPrices: 1,
                         productUrl: 1,
-                        inStock: 1
+                        inStock: 1,
+                        variationPrices: {
+                            $map: {
+                            input: "$variationPrices",
+                            as: "vp",
+                            in: {
+                                id: "$$vp.id",
+                                value: "$$vp.value",
+                                price: "$$vp.price",
+                                weight: "$$vp.weight",
+                                discount: "$$vp.discount",
+                                finalSellingPrice: "$$vp.finalSellingPrice",
+                                checked: "$$vp.checked"
+                                // You can include more fields if needed, but **not** "images"
+                            }
+                            }
+                        }
+
                     }
                 }
             ]);
@@ -462,9 +478,24 @@ export const getRank2HomeProducts = async (req, res) => {
                         discount: 1,
                         discountType: 1,
                         finalSellingPrice: 1,
-                        variationPrices: 1,
                         productUrl: 1,
-                        inStock: 1
+                        inStock: 1,
+                        variationPrices: {
+                            $map: {
+                            input: "$variationPrices",
+                            as: "vp",
+                            in: {
+                                id: "$$vp.id",
+                                value: "$$vp.value",
+                                price: "$$vp.price",
+                                weight: "$$vp.weight",
+                                discount: "$$vp.discount",
+                                finalSellingPrice: "$$vp.finalSellingPrice",
+                                checked: "$$vp.checked"
+                                // You can include more fields if needed, but **not** "images"
+                            }
+                            }
+                        }
                     }
                 }
             ]);
@@ -627,9 +658,24 @@ export const getProductsByCategory = async (req, res) => {
                     discount: 1,
                     discountType: 1,
                     finalSellingPrice: 1,
-                    variationPrices: 1,
                     productUrl: 1,
-                    inStock: 1
+                    inStock: 1,
+                    variationPrices: {
+                            $map: {
+                            input: "$variationPrices",
+                            as: "vp",
+                            in: {
+                                id: "$$vp.id",
+                                value: "$$vp.value",
+                                price: "$$vp.price",
+                                weight: "$$vp.weight",
+                                discount: "$$vp.discount",
+                                finalSellingPrice: "$$vp.finalSellingPrice",
+                                checked: "$$vp.checked"
+                                // You can include more fields if needed, but **not** "images"
+                            }
+                            }
+                        }
                 }
             }
         );
@@ -792,9 +838,24 @@ export const getAllProducts = async (req, res) => {
                     discount: 1,
                     discountType: 1,
                     finalSellingPrice: 1,
-                    variationPrices: 1,
                     productUrl: 1,
-                    inStock: 1
+                    inStock: 1,
+                    variationPrices: {
+                            $map: {
+                            input: "$variationPrices",
+                            as: "vp",
+                            in: {
+                                id: "$$vp.id",
+                                value: "$$vp.value",
+                                price: "$$vp.price",
+                                weight: "$$vp.weight",
+                                discount: "$$vp.discount",
+                                finalSellingPrice: "$$vp.finalSellingPrice",
+                                checked: "$$vp.checked"
+                                // You can include more fields if needed, but **not** "images"
+                            }
+                            }
+                        }
                 }
             }
         );
