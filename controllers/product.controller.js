@@ -532,11 +532,12 @@ export const getProductsByCategory = async (req, res) => {
       gender,
       rating,
       page = 1,
+      limit =12,
       sortOption,
     } = req.query;
-
-    const limit = 12;
-    const skip = (page - 1) * limit;
+    const numericLimit = parseInt(limit, 10);
+  const numericPage = parseInt(page, 10);
+  const skip = (numericPage - 1) * numericLimit;
 
     // Default category fallback
     if (!id || id === 'undefined') {
@@ -657,7 +658,7 @@ export const getProductsByCategory = async (req, res) => {
         products: [
           { $sort: sort },
           { $skip: skip },
-          { $limit: limit },
+          { $limit: numericLimit },
           {
             $project: {
               productName: 1,
@@ -671,6 +672,7 @@ export const getProductsByCategory = async (req, res) => {
               finalSellingPrice: 1,
               inStock: 1,
               showOnHome: 1,
+              price:1,
               variationPrices: {
                 $map: {
                   input: '$variationPrices',
