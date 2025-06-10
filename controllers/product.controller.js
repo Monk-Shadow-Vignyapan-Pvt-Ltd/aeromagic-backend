@@ -520,375 +520,395 @@ export const getRank2HomeProducts = async (req, res) => {
 };
 
 
-
 export const getProductsByCategory = async (req, res) => {
-    try {
-        let { id } = req.params;
-        const { brand, tone,occasion, availability, price, gender, rating, page = 1,sortOption } = req.query;
+  try {
+    let { id } = req.params;
+    const {
+      brand,
+      tone,
+      occasion,
+      availability,
+      price,
+      gender,
+      rating,
+      page = 1,
+      sortOption,
+    } = req.query;
 
-        if (!id || id === "undefined") {
-            const firstCategory = await Category.findOne().sort({ createdAt: 1 });
-            if (!firstCategory) {
-                return res.status(404).json({ message: "No categories found", success: false });
-            }
-            id = firstCategory._id.toString();
-        }
+    const limit = 12;
+    const skip = (page - 1) * limit;
 
-
-        let filter = {productEnabled:true };
-
-        // Apply filters dynamically
-        filter.categoryId = new mongoose.Types.ObjectId(id);
-        if (brand) filter.brand = brand;
-        if (tone) {
-            const toneIds = tone.split(",");
-            filter["tone.label"] = { $in: toneIds };
-          }
-          if (occasion) {
-            const occasionIds = occasion.split(",");
-            filter.occasions = {
-                $elemMatch: {
-                    label: { $in: occasionIds }
-                }
-            };
-        }        
-        if (gender) filter.gender = { $in: gender.split(",") };
-        if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
-
-        // Price filter (expects min-max format: "10-100")
-        if (price) {
-            const priceRanges = price.split(",").map(range => range.split("-").map(Number)); // Convert to number arrays
-            filter.$or = priceRanges.map(([min, max]) => ({
-                $or: [
-                    // Case 1: Products without variations (filter by finalSellingPrice)
-                    { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
-        
-                    // Case 2: Products with variations (filter by variationPrices array)
-                    { hasVariations: true, variationPrices: { $elemMatch: { finalSellingPrice: { $gte: min, $lte: max } } } }
-                ]
-            }));
-        }
-        
-
-        // Pagination
-        const limit = 12;
-        const skip = (page - 1) * limit;
-        let sortQuery = { createdAt: -1 };
-
-        const pipeline = [
-            { $match: filter }
-        ];
-
-        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
-        if (availability) {
-            const availabilityArray = availability.split(",").map(status => status === "true");
-
-            pipeline.push({
-                $match: {
-                    $expr: {
-                        $or: [
-                            {
-                                $and: [
-                                    { $eq: ["$hasVariations", false] },
-                                    { $in: ["$inStock", availabilityArray] }
-                                ]
-                            },
-                            {
-                                $and: [
-                                    { $eq: ["$hasVariations", true] },
-                                    {
-                                        $in: [
-                                            { $ifNull: [{ $arrayElemAt: ["$variationPrices.checked", 0] }, false] },
-                                            availabilityArray
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                }
-            });
-        }
-
-        // STEP 4: Add computedPrice field
-        pipeline.push({
-            $addFields: {
-                computedPrice: {
-                    $cond: {
-                        if: { $eq: ["$hasVariations", true] },
-                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
-                        else: "$finalSellingPrice"
-                    }
-                }
-            }
-        });
-
-
-        // Sorting Logic
-        switch (sortOption) {
-            case "price-low-high":
-                pipeline.push({ $sort: { computedPrice: 1 } });
-                break;
-            case "price-high-low":
-                pipeline.push({ $sort: { computedPrice: -1 } });
-                break;
-            case "rating-high-low":
-                pipeline.push({ $sort: { rating: -1 } });
-                break;
-            case "rating-low-high":
-                pipeline.push({ $sort: { rating: 1 } });
-                break;
-            default:
-                pipeline.push({ $sort: { createdAt: -1 } });
-                break;
-        }
-
-        // Pagination in aggregation
-       pipeline.push(
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $project: {
-                    productName: 1,
-                    productImage: 1,
-                    hasVariations: 1,
-                    price: 1,
-                    showOnHome: 1,
-                    categoryId: 1,
-                    discount: 1,
-                    discountType: 1,
-                    finalSellingPrice: 1,
-                    productUrl: 1,
-                    inStock: 1,
-                    variationPrices: {
-                            $map: {
-                            input: "$variationPrices",
-                            as: "vp",
-                            in: {
-                                id: "$$vp.id",
-                                value: "$$vp.value",
-                                price: "$$vp.price",
-                                weight: "$$vp.weight",
-                                discount: "$$vp.discount",
-                                finalSellingPrice: "$$vp.finalSellingPrice",
-                                checked: "$$vp.checked"
-                                // You can include more fields if needed, but **not** "images"
-                            }
-                            }
-                        }
-                }
-            }
-        );
-
-        const products = await Product.aggregate(pipeline);
-
-        if (!products.length) return res.status(200).json({
-            products:[],
-            success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: 1,
-                totalProducts:0,
-            }
-        });
-
-        const totalProducts = await Product.countDocuments(filter);
-
-        res.status(200).json({
-            products,
-            success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(totalProducts / limit),
-                totalProducts,
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({ message: 'Failed to fetch products', success: false });
+    // Default category fallback
+    if (!id || id === 'undefined') {
+      const firstCategory = await Category.findOne().sort({ createdAt: 1 });
+      if (!firstCategory) {
+        return res.status(404).json({ message: 'No categories found', success: false });
+      }
+      id = firstCategory._id.toString();
     }
+
+    const match = {
+      productEnabled: true,
+      categoryId: new mongoose.Types.ObjectId(id),
+    };
+
+    if (brand) match.brand = brand;
+    if (tone) match['tone.label'] = { $in: tone.split(',') };
+    if (occasion) match.occasions = { $elemMatch: { label: { $in: occasion.split(',') } } };
+    if (gender) match.gender = { $in: gender.split(',') };
+    if (rating) match.rating = { $gte: parseFloat(rating) };
+
+    const pipeline = [{ $match: match }];
+
+    // Availability check on first variation only
+    if (availability) {
+      const bools = availability.split(',').map(v => v === 'true');
+      pipeline.push({
+        $match: {
+          $or: [
+            { hasVariations: false, inStock: { $in: bools } },
+            {
+              hasVariations: true,
+              $expr: {
+                $in: [
+                  {
+                    $ifNull: [
+                      { $arrayElemAt: ['$variationPrices.checked', 0] },
+                      false,
+                    ],
+                  },
+                  bools,
+                ],
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    // Price filter using only first variation
+    if (price) {
+      const priceRanges = price.split(',').map(r => r.split('-').map(Number));
+      pipeline.push({
+        $match: {
+          $or: priceRanges.map(([min, max]) => ({
+            $or: [
+              { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
+              {
+                hasVariations: true,
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        { $ifNull: [{ $arrayElemAt: ['$variationPrices.finalSellingPrice', 0] }, 0] },
+                        min,
+                      ],
+                    },
+                    {
+                      $lte: [
+                        { $ifNull: [{ $arrayElemAt: ['$variationPrices.finalSellingPrice', 0] }, 0] },
+                        max,
+                      ],
+                    },
+                  ],
+                },
+              },
+            ],
+          })),
+        },
+      });
+    }
+
+    // Compute price based on first variation only
+    pipeline.push({
+      $addFields: {
+        computedPrice: {
+          $cond: {
+            if: { $eq: ['$hasVariations', true] },
+            then: { $ifNull: [{ $arrayElemAt: ['$variationPrices.finalSellingPrice', 0] }, 0] },
+            else: '$finalSellingPrice',
+          },
+        },
+      },
+    });
+
+    // Sorting logic
+    let sort = {};
+    switch (sortOption) {
+      case 'price-low-high':
+        sort = { computedPrice: 1 };
+        break;
+      case 'price-high-low':
+        sort = { computedPrice: -1 };
+        break;
+      case 'rating-high-low':
+        sort = { rating: -1 };
+        break;
+      case 'rating-low-high':
+        sort = { rating: 1 };
+        break;
+      default:
+        sort = { createdAt: -1 };
+    }
+
+    // Final aggregation
+    pipeline.push({
+      $facet: {
+        products: [
+          { $sort: sort },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              productName: 1,
+              productImage: 1,
+              productUrl: 1,
+              categoryId: 1,
+              hasVariations: 1,
+              discount: 1,
+              discountType: 1,
+              rating: 1,
+              finalSellingPrice: 1,
+              inStock: 1,
+              showOnHome: 1,
+              variationPrices: {
+                $map: {
+                  input: '$variationPrices',
+                  as: 'vp',
+                  in: {
+                    id: '$$vp.id',
+                    value: '$$vp.value',
+                    price: '$$vp.price',
+                    weight: '$$vp.weight',
+                    discount: '$$vp.discount',
+                    finalSellingPrice: '$$vp.finalSellingPrice',
+                    checked: '$$vp.checked',
+                  },
+                },
+              },
+            },
+          },
+        ],
+        total: [{ $count: 'count' }],
+      },
+    });
+
+    const result = await Product.aggregate(pipeline);
+    const products = result[0]?.products || [];
+    const totalProducts = result[0]?.total[0]?.count || 0;
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    return res.status(200).json({
+      products,
+      success: true,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalProducts,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching products:', error);
+    return res.status(500).json({ message: 'Failed to fetch products', success: false });
+  }
 };
+
+
 
 export const getAllProducts = async (req, res) => {
-    try {
-        const { brand, tone, availability, price, occasion, gender, rating, page = 1,sortOption } = req.query;
+  try {
+    const {
+      brand,
+      tone,
+      availability,
+      price,
+      occasion,
+      gender,
+      rating,
+      page = 1,
+      sortOption
+    } = req.query;
 
+    const limit = 12;
+    const skip = (page - 1) * limit;
 
-        let filter = {productEnabled:true };
+    const match = { productEnabled: true };
 
-        // Apply filters dynamically
-        if (brand) filter.brand = brand;
-        if (tone) {
-            const toneIds = tone.split(",");
-            filter["tone.label"] = { $in: toneIds };
-          }
-          if (occasion) {
-            const occasionIds = occasion.split(",");
-            filter.occasions = {
-                $elemMatch: {
-                    label: { $in: occasionIds }
-                }
-            };
+    // Base filters
+    if (brand) match.brand = brand;
+    if (tone) match["tone.label"] = { $in: tone.split(",") };
+    if (occasion) {
+      match.occasions = {
+        $elemMatch: {
+          label: { $in: occasion.split(",") }
         }
-        
-        if (gender) filter.gender = { $in: gender.split(",") };
-        if (rating) filter.rating = { $gte: parseFloat(rating) }; // Minimum rating filter
-
-        // Price filter (expects min-max format: "10-100")
-        if (price) {
-            const priceRanges = price.split(",").map(range => range.split("-").map(Number)); // Convert to number arrays
-            filter.$or = priceRanges.map(([min, max]) => ({
-                $or: [
-                    // Case 1: Products without variations (filter by finalSellingPrice)
-                    { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
-        
-                    // Case 2: Products with variations (filter by variationPrices array)
-                    { hasVariations: true, variationPrices: { $elemMatch: { finalSellingPrice: { $gte: min, $lte: max } } } }
-                ]
-            }));
-        }
-        
-
-        // Pagination
-        const limit = 12;
-        const skip = (page - 1) * limit;
-        let sortQuery = { createdAt: -1 };
-
-         const pipeline = [
-            { $match: filter }
-        ];
-
-        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
-        if (availability) {
-            const availabilityArray = availability.split(",").map(status => status === "true");
-
-            pipeline.push({
-                $match: {
-                    $expr: {
-                        $or: [
-                            {
-                                $and: [
-                                    { $eq: ["$hasVariations", false] },
-                                    { $in: ["$inStock", availabilityArray] }
-                                ]
-                            },
-                            {
-                                $and: [
-                                    { $eq: ["$hasVariations", true] },
-                                    {
-                                        $in: [
-                                            { $ifNull: [{ $arrayElemAt: ["$variationPrices.checked", 0] }, false] },
-                                            availabilityArray
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                }
-            });
-        }
-
-        // STEP 4: Add computedPrice field
-        pipeline.push({
-            $addFields: {
-                computedPrice: {
-                    $cond: {
-                        if: { $eq: ["$hasVariations", true] },
-                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
-                        else: "$finalSellingPrice"
-                    }
-                }
-            }
-        });
-
-
-        // Sorting Logic
-        switch (sortOption) {
-            case "price-low-high":
-                pipeline.push({ $sort: { computedPrice: 1 } });
-                break;
-            case "price-high-low":
-                pipeline.push({ $sort: { computedPrice: -1 } });
-                break;
-            case "rating-high-low":
-                pipeline.push({ $sort: { rating: -1 } });
-                break;
-            case "rating-low-high":
-                pipeline.push({ $sort: { rating: 1 } });
-                break;
-            default:
-                pipeline.push({ $sort: { createdAt: -1 } });
-                break;
-        }
-
-        // Pagination in aggregation
-        pipeline.push(
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $project: {
-                    productName: 1,
-                    productImage: 1,
-                    hasVariations: 1,
-                    price: 1,
-                    showOnHome: 1,
-                    categoryId: 1,
-                    discount: 1,
-                    discountType: 1,
-                    finalSellingPrice: 1,
-                    productUrl: 1,
-                    inStock: 1,
-                    variationPrices: {
-                            $map: {
-                            input: "$variationPrices",
-                            as: "vp",
-                            in: {
-                                id: "$$vp.id",
-                                value: "$$vp.value",
-                                price: "$$vp.price",
-                                weight: "$$vp.weight",
-                                discount: "$$vp.discount",
-                                finalSellingPrice: "$$vp.finalSellingPrice",
-                                checked: "$$vp.checked"
-                                // You can include more fields if needed, but **not** "images"
-                            }
-                            }
-                        }
-                }
-            }
-        );
-
-        const products = await Product.aggregate(pipeline);
-
-        if (!products.length) return res.status(200).json({
-            products:[],
-            success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: 1,
-                totalProducts:0,
-            }
-        });
-
-        const totalProducts = await Product.countDocuments(filter);
-
-        res.status(200).json({
-            products,
-            success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(totalProducts / limit),
-                totalProducts,
-            }
-        });
-
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({ message: 'Failed to fetch products', success: false });
+      };
     }
+    if (gender) match.gender = { $in: gender.split(",") };
+    if (rating) match.rating = { $gte: parseFloat(rating) };
+
+    const pipeline = [{ $match: match }];
+
+    // Availability filter using first variation only
+    if (availability) {
+      const availabilityArray = availability.split(",").map(status => status === "true");
+
+      pipeline.push({
+        $match: {
+          $expr: {
+            $or: [
+              {
+                $and: [
+                  { $eq: ["$hasVariations", false] },
+                  { $in: ["$inStock", availabilityArray] }
+                ]
+              },
+              {
+                $and: [
+                  { $eq: ["$hasVariations", true] },
+                  {
+                    $in: [
+                      { $ifNull: [{ $arrayElemAt: ["$variationPrices.checked", 0] }, false] },
+                      availabilityArray
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      });
+    }
+
+    // Price filter using first variation only
+    if (price) {
+      const priceRanges = price.split(",").map(range => range.split("-").map(Number));
+      pipeline.push({
+        $match: {
+          $or: priceRanges.map(([min, max]) => ({
+            $or: [
+              { hasVariations: false, finalSellingPrice: { $gte: min, $lte: max } },
+              {
+                hasVariations: true,
+                $expr: {
+                  $and: [
+                    {
+                      $gte: [
+                        { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                        min
+                      ]
+                    },
+                    {
+                      $lte: [
+                        { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+                        max
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }))
+        }
+      });
+    }
+
+    // Add computedPrice for sorting
+    pipeline.push({
+      $addFields: {
+        computedPrice: {
+          $cond: {
+            if: { $eq: ["$hasVariations", true] },
+            then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+            else: "$finalSellingPrice"
+          }
+        }
+      }
+    });
+
+    // Sorting logic
+    let sort = {};
+    switch (sortOption) {
+      case "price-low-high":
+        sort = { computedPrice: 1 };
+        break;
+      case "price-high-low":
+        sort = { computedPrice: -1 };
+        break;
+      case "rating-high-low":
+        sort = { rating: -1 };
+        break;
+      case "rating-low-high":
+        sort = { rating: 1 };
+        break;
+      default:
+        sort = { createdAt: -1 };
+    }
+
+    // Use $facet for paginated results + total count
+    pipeline.push({
+      $facet: {
+        products: [
+          { $sort: sort },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              productName: 1,
+              productImage: 1,
+              hasVariations: 1,
+              price: 1,
+              showOnHome: 1,
+              categoryId: 1,
+              discount: 1,
+              discountType: 1,
+              finalSellingPrice: 1,
+              productUrl: 1,
+              inStock: 1,
+              rating: 1,
+              variationPrices: {
+                $map: {
+                  input: "$variationPrices",
+                  as: "vp",
+                  in: {
+                    id: "$$vp.id",
+                    value: "$$vp.value",
+                    price: "$$vp.price",
+                    weight: "$$vp.weight",
+                    discount: "$$vp.discount",
+                    finalSellingPrice: "$$vp.finalSellingPrice",
+                    checked: "$$vp.checked"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        total: [{ $count: "count" }]
+      }
+    });
+
+    const result = await Product.aggregate(pipeline);
+    const products = result[0]?.products || [];
+    const totalProducts = result[0]?.total[0]?.count || 0;
+    const totalPages = Math.ceil(totalProducts / limit);
+
+    res.status(200).json({
+      products,
+      success: true,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalProducts
+      }
+    });
+
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({ message: "Failed to fetch products", success: false });
+  }
 };
+
 
 export const getProductsHeader = async (req, res) => {
     try {
