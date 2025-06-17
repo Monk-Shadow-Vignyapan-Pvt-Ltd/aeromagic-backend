@@ -1,5 +1,6 @@
 import { Order } from '../models/order.model.js'; // Adjust the path as necessary
 import { Product } from '../models/product.model.js';
+import { Category } from '../models/category.model.js';
 import moment from 'moment';
 import { Customer } from '../models/customer.model.js';
 import nodemailer from 'nodemailer';
@@ -616,7 +617,7 @@ export const getOrdersExcel = async (req, res) => {
     if (startDate && endDate) {
       filter.createdAt = {
         $gte: new Date(startDate),
-        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
       };
     }
 
@@ -624,33 +625,43 @@ export const getOrdersExcel = async (req, res) => {
       .populate("customerId")
       .sort({ createdAt: -1 });
 
-    // Create workbook & sheet
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Orders');
 
-    // Add header row
     worksheet.columns = [
-      { header: 'Order ID', key: 'orderId', width: 25 },
-      { header: 'Customer Name', key: 'customer', width: 30 },
-      { header: 'Order Date', key: 'createdAt', width: 20 },
+      { header: 'INV. DATE', key: 'createdAt', width: 20 },
+      { header: 'INV. NO.', key: 'orderId', width: 25 },
+      { header: 'PARTY NAME', key: 'customer', width: 30 },
+      { header: 'ITEM GROUP NAME', key: 'category', width: 30 },
       { header: 'Status', key: 'status', width: 15 },
       { header: 'Total Amount', key: 'totalAmount', width: 20 },
-      { header: 'Payment Mode', key: 'paymentMode', width: 20 }
+      { header: 'Payment Mode', key: 'paymentMode', width: 20 },
     ];
 
-    // Add data rows
-    orders.forEach(order => {
+    for (const order of orders) {
+      let categoryName = 'N/A';
+
+      try {
+        const firstCartItem = order.cartItems?.[0];
+        if (firstCartItem?.categoryId) {
+          const category = await Category.findById(firstCartItem.categoryId).select('name');
+          categoryName = category?.name || 'N/A';
+        }
+      } catch (err) {
+        console.error(`Failed to fetch category for order ${order._id}`, err.message);
+      }
+
       worksheet.addRow({
+        createdAt: order.createdAt.toISOString().split("T")[0],
         orderId: order.orderId,
         customer: order.customerId?.fullname || 'N/A',
-        createdAt: order.createdAt.toISOString().split("T")[0],
+        category: categoryName,
         status: order.status,
         totalAmount: order.totalAmount || 0,
         paymentMode: order.paymentMode || 'N/A'
       });
-    });
+    }
 
-    // Set response headers for Excel download
     res.setHeader(
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
