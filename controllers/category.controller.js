@@ -222,6 +222,32 @@ res.status(500).send('Error loading image');
 
 };
 
+export const getCategoryThumbImageUrl = async (req, res) => {
+   try {
+ const categoryId = req.params.id;
+const category = await Category.findById(categoryId).select("thumbnailCategoryImage");
+if (!category || !category.thumbnailCategoryImage) {
+return res.status(404).send('Image not found');
+}
+const matches = category.thumbnailCategoryImage.match(/^data:(.+);base64,(.+)$/);
+if (!matches) {
+  return res.status(400).send('Invalid image format');
+}
+
+const mimeType = matches[1];
+const base64Data = matches[2];
+const buffer = Buffer.from(base64Data, 'base64');
+
+res.set('Content-Type', mimeType);
+res.send(buffer);
+
+} catch (err) {
+console.error('Image route error:', err);
+res.status(500).send('Error loading image');
+}
+
+};
+
 export const getCollections = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
@@ -229,7 +255,7 @@ export const getCollections = async (req, res) => {
 
     const totalCollections = await Category.countDocuments();
 
-    const paginatedCollections = await Category.find().select("-mobileImage -thumbnailCategoryImage -uspImage -howToUse -others")
+    const paginatedCollections = await Category.find().select("-categoryImage -mobileImage -thumbnailCategoryImage -uspImage -howToUse -others")
       .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -242,13 +268,13 @@ export const getCollections = async (req, res) => {
     );
 
     res.status(200).json({
+        data:{
+            total:totalCollections,
       collections: enrichedCollectionss,
+        },
+      
       success: true,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalCollections / limit),
-        totalCollections,
-      },
+      
     });
   } catch (error) {
     console.error("Error fetching collections:", error);

@@ -159,13 +159,11 @@ export const getPaginationProducts = async (req, res) => {
     );
 
     res.status(200).json({
-      products: enrichedProducts,
-      success: true,
-      pagination: {
-        currentPage: Number(page),
-        totalPages: Math.ceil(totalProducts / limit),
-        totalProducts,
+      data:{
+        total:totalProducts,
+        products: enrichedProducts,
       },
+      success: true,
     });
   } catch (error) {
     console.error("Error fetching products:", error);
@@ -382,7 +380,7 @@ export const getRank1HomeProducts = async (req, res) => {
             categoryId: category._id,
             showOnHome: true,
             productEnabled:true,
-        }).select('productName productImage hasVariations price showOnHome productEnabled categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+        }).select('productName hasVariations price showOnHome productEnabled categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
         // Step 2: If less than 8, fetch random non-showOnHome products from the same category
         if (homeProducts.length < 8) {
@@ -394,7 +392,6 @@ export const getRank1HomeProducts = async (req, res) => {
                 {
                     $project: {
                         productName: 1,
-                        productImage: 1,
                         hasVariations: 1,
                         price: 1,
                         showOnHome: 1,
@@ -457,7 +454,7 @@ export const getRank2HomeProducts = async (req, res) => {
             categoryId: category._id,
             showOnHome: true,
             productEnabled:true,
-        }).select('productName productImage hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
+        }).select('productName hasVariations price showOnHome categoryId discount discountType finalSellingPrice variationPrices productUrl inStock');
 
         // Step 2: If less than 8, fetch random non-showOnHome products from the same category
         if (homeProducts.length < 8) {
@@ -469,7 +466,6 @@ export const getRank2HomeProducts = async (req, res) => {
                 {
                     $project: {
                         productName: 1,
-                        productImage: 1,
                         hasVariations: 1,
                         price: 1,
                         showOnHome: 1,
@@ -662,7 +658,6 @@ export const getProductsByCategory = async (req, res) => {
           {
             $project: {
               productName: 1,
-              productImage: 1,
               productUrl: 1,
               categoryId: 1,
               hasVariations: 1,
@@ -857,7 +852,6 @@ export const getAllProducts = async (req, res) => {
           {
             $project: {
               productName: 1,
-              productImage: 1,
               hasVariations: 1,
               price: 1,
               showOnHome: 1,
@@ -1131,7 +1125,6 @@ export const getProductsByCollection = async (req, res) => {
             {
                 $project: {
                     productName: 1,
-                    productImage: 1,
                     hasVariations: 1,
                     price: 1,
                     showOnHome: 1,
@@ -1139,7 +1132,6 @@ export const getProductsByCollection = async (req, res) => {
                     discount: 1,
                     discountType: 1,
                     finalSellingPrice: 1,
-                    variationPrices: 1,
                     productUrl: 1,
                     inStock: 1
                 }
@@ -1168,13 +1160,12 @@ export const getProductsByCollection = async (req, res) => {
             );
 
         res.status(200).json({
-            products:enrichedProducts,
+            data:{
+              total:totalProducts,
+              products:enrichedProducts,
+            },
+            
             success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: Math.ceil(totalProducts / limit),
-                totalProducts,
-            }
         });
 
     } catch (error) {
