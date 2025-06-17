@@ -7,6 +7,7 @@ import axios from "axios";
 import dotenv from "dotenv";
 import FormData from 'form-data';
 import cron from "node-cron";
+import ExcelJS from 'exceljs';
 
 dotenv.config();
 
@@ -605,6 +606,69 @@ export const getOrders = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch orders", success: false });
   }
 };
+
+export const getOrdersExcel = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    const filter = {};
+
+    if (startDate && endDate) {
+      filter.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+      };
+    }
+
+    const orders = await Order.find(filter)
+      .populate("customerId")
+      .sort({ createdAt: -1 });
+
+    // Create workbook & sheet
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Orders');
+
+    // Add header row
+    worksheet.columns = [
+      { header: 'Order ID', key: 'orderId', width: 25 },
+      { header: 'Customer Name', key: 'customer', width: 30 },
+      { header: 'Order Date', key: 'createdAt', width: 20 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Total Amount', key: 'totalAmount', width: 20 },
+      { header: 'Payment Mode', key: 'paymentMode', width: 20 }
+    ];
+
+    // Add data rows
+    orders.forEach(order => {
+      worksheet.addRow({
+        orderId: order.orderId,
+        customer: order.customerId?.fullname || 'N/A',
+        createdAt: order.createdAt.toISOString().split("T")[0],
+        status: order.status,
+        totalAmount: order.totalAmount || 0,
+        paymentMode: order.paymentMode || 'N/A'
+      });
+    });
+
+    // Set response headers for Excel download
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=orders_${startDate || 'all'}_to_${endDate || 'all'}.xlsx`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error('Excel Export Error:', err);
+    res.status(500).json({ message: 'Failed to export orders', success: false });
+  }
+};
+
 
 
 // Get order by ID

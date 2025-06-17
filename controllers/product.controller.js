@@ -119,7 +119,7 @@ export const getProducts = async (req, res) => {
         const allProducts = await Product.find(searchFilter);
 
         // Apply pagination
-        const paginatedProducts = await Product.find(searchFilter)
+        const paginatedProducts = await Product.find(searchFilter).select("productName showOnHome categoryId productEnabled")
             .sort({ _id: -1 }) // Sort newest first
             .skip(skip)
             .limit(limit);
