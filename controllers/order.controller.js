@@ -644,8 +644,8 @@ export const getOrdersExcel = async (req, res) => {
       try {
         const firstCartItem = order.cartItems?.[0];
         if (firstCartItem?.categoryId) {
-          const category = await Category.findById(firstCartItem.categoryId).select('name');
-          categoryName = category?.name || 'N/A';
+          const category = await Category.findById(firstCartItem.categoryId).select('categoryName');
+          categoryName = category?.categoryName || 'N/A';
         }
       } catch (err) {
         console.error(`Failed to fetch category for order ${order._id}`, err.message);

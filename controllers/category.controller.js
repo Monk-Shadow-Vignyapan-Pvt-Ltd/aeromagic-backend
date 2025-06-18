@@ -2,6 +2,7 @@ import { Category } from '../models/category.model.js';
 import cloudinary from "../utils/cloudinary.js";
 import getDataUri from "../utils/datauri.js";
 import sharp from 'sharp';
+import crc32 from "crc-32";
 
 // Add a new category
 export const addCategory = async (req, res) => {
@@ -255,26 +256,32 @@ export const getCollections = async (req, res) => {
 
     const totalCollections = await Category.countDocuments();
 
-    const paginatedCollections = await Category.find().select("-categoryImage -mobileImage -thumbnailCategoryImage -uspImage -howToUse -others")
+    const paginatedCollections = await Category.find()
+      .select("-mobileImage -thumbnailCategoryImage -uspImage -howToUse -others")
       .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit));
 
-    const enrichedCollectionss = await Promise.all(
-      paginatedCollections.map(async (category) => ({
-        ...category.toObject(), // Convert Mongoose doc to plain object
-        categoryImage: `https://api.aromagicperfume.com/api/v1/categories/getCategoryImageUrl/${category._id}`,
-      }))
-    );
+    const enrichedCollections = paginatedCollections.map((category) => {
+      const shortId = Math.abs(crc32.str(category._id.toString()));
+      return {
+        id: shortId,
+        title: category.categoryName || "Untitled",
+        handle: category.slug || category.categoryName.toLowerCase().replace(/\s+/g, "-"),
+        body_html: `<p>${category.description || "Explore our curated collection."}</p>`,
+        image: {
+          src: `https://api.aromagicperfume.com/api/v1/categories/getCategoryImageUrl/${category._id}`,
+        },
+        created_at: category.createdAt,
+        updated_at: category.updatedAt,
+      };
+    });
 
     res.status(200).json({
-        data:{
-            total:totalCollections,
-      collections: enrichedCollectionss,
-        },
-      
-      success: true,
-      
+      data: {
+        total: totalCollections,
+        collections: enrichedCollections,
+      }
     });
   } catch (error) {
     console.error("Error fetching collections:", error);

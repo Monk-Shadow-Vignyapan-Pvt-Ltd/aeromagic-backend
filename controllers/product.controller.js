@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { ProductSearch } from '../models/product_search.model.js';
 import { create } from 'xmlbuilder2';
 import fs from "fs";
+import crc32 from "crc-32";
 
 // Add a new product
 export const addProduct = async (req, res) => {
@@ -146,30 +147,71 @@ export const getPaginationProducts = async (req, res) => {
 
     const totalProducts = await Product.countDocuments();
 
-    const paginatedProducts = await Product.find().select("-multiImages -variationPrices")
+    const paginatedProducts = await Product.find()
+      .select("-multiImages -variationPrices")
       .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit));
 
-    const enrichedProducts = await Promise.all(
-      paginatedProducts.map(async (product) => ({
-        ...product.toObject(), // Convert Mongoose doc to plain object
-        productImage: `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`,
-      }))
-    );
+    const enrichedProducts = paginatedProducts.map((product) => {
+      const plain = product.toObject();
+      const shortId = Math.abs(crc32.str(product._id.toString()));
+      const imageUrl = `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`;
+      const price = plain.finalSellingPrice || plain.price || 0;
+
+      const tags = [
+        ...(plain.occasions?.map(o => o.label) || []),
+        plain.tone?.label,
+        plain.gender
+      ].filter(Boolean).join(", ");
+
+      return {
+        id: shortId,
+        title: plain.productName,
+        body_html: `<p>${plain.shortDescription || plain.productName}</p>`,
+        vendor: "Aromagic",
+        product_type: "Perfume",
+        created_at: plain.createdAt,
+        handle: plain.productUrl,
+        updated_at: plain.updatedAt,
+        tags,
+        status: plain.inStock ? "active" : "draft",
+        variants: [
+          {
+            id: shortId + 1,
+            title: "Default",
+            price: price.toFixed(2),
+            sku: `${plain.productName.toUpperCase().replace(/\s+/g, '-')}-${plain.gender?.toUpperCase() || "GEN"}`,
+            created_at: plain.createdAt,
+            updated_at: plain.updatedAt,
+            taxable: true,
+            grams: (plain.weight || 0) * 1000,
+            weight: plain.weight || 0,
+            weight_unit: "g",
+            image: {
+              src: imageUrl
+            }
+          }
+        ],
+        image: {
+          src: imageUrl
+        }
+      };
+    });
 
     res.status(200).json({
-      data:{
-        total:totalProducts,
-        products: enrichedProducts,
+      data: {
+        total: totalProducts,
+        products: enrichedProducts
       },
-      success: true,
+      success: true
     });
   } catch (error) {
     console.error("Error fetching products:", error);
     res.status(500).json({ message: "Failed to fetch products", success: false });
   }
 };
+
 
 
 
@@ -1075,104 +1117,139 @@ export const setProductOnOff = async (req, res) => {
 };
 
 export const getProductsByCollection = async (req, res) => {
-    try {
-        let { collection_id, page = 1,limit =10, } = req.query;
-        page = parseInt(page);
-        limit = parseInt(limit);
+  try {
+    let { collection_id, page = 1, limit = 10 } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
 
-        if (!collection_id || collection_id === "undefined") {
-            const firstCategory = await Category.findOne().sort({ createdAt: 1 });
-            if (!firstCategory) {
-                return res.status(404).json({ message: "No categories found", success: false });
-            }
-            collection_id = firstCategory._id.toString();
-        }
+    let realCategoryId;
 
+    // ✅ Resolve short collection ID to real MongoDB ObjectId
+    const categories = await Category.find().select("_id");
 
-        let filter = {productEnabled:true };
-
-        // Apply filters dynamically
-        filter.categoryId = new mongoose.Types.ObjectId(collection_id);
-        const skip = (page - 1) * limit;
-        let sortQuery = { createdAt: -1 };
-
-        const pipeline = [
-            { $match: filter }
-        ];
-
-        // STEP 3: Push availability match logic (based on variationPrices[0].checked)
-        // STEP 4: Add computedPrice field
-        pipeline.push({
-            $addFields: {
-                computedPrice: {
-                    $cond: {
-                        if: { $eq: ["$hasVariations", true] },
-                        then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
-                        else: "$finalSellingPrice"
-                    }
-                }
-            }
-        });
-
-
-        // Sorting Logic
-       pipeline.push({ $sort: { createdAt: -1 } });
-
-        // Pagination in aggregation
-       pipeline.push(
-            { $skip: skip },
-            { $limit: limit },
-            {
-                $project: {
-                    productName: 1,
-                    hasVariations: 1,
-                    price: 1,
-                    showOnHome: 1,
-                    categoryId: 1,
-                    discount: 1,
-                    discountType: 1,
-                    finalSellingPrice: 1,
-                    productUrl: 1,
-                    inStock: 1
-                }
-            }
-        );
-
-        const products = await Product.aggregate(pipeline);
-
-        if (!products.length) return res.status(200).json({
-            products:[],
-            success: true,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages: 1,
-                totalProducts:0,
-            }
-        });
-
-        const totalProducts = await Product.countDocuments(filter);
-
-        const enrichedProducts = await Promise.all(
-            products.map(async (product) => ({
-                    ...product, // ✅ OK - product is already a plain object
-                    productImage: `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`,
-                }))
-            );
-
-        res.status(200).json({
-            data:{
-              total:totalProducts,
-              products:enrichedProducts,
-            },
-            
-            success: true,
-        });
-
-    } catch (error) {
-        console.error('Error fetching products:', error);
-        res.status(500).json({ message: 'Failed to fetch products', success: false });
+    for (const category of categories) {
+      const shortId = Math.abs(crc32.str(category._id.toString()));
+      if (shortId.toString() === collection_id) {
+        realCategoryId = category._id;
+        break;
+      }
     }
+
+    // 🔁 If not matched, fallback to first category
+    if (!realCategoryId) {
+      const fallback = await Category.findOne().sort({ createdAt: 1 });
+      if (!fallback) {
+        return res.status(404).json({ message: "No categories found", success: false });
+      }
+      realCategoryId = fallback._id;
+    }
+
+    const filter = {
+      productEnabled: true,
+      categoryId: new mongoose.Types.ObjectId(realCategoryId),
+    };
+
+    const skip = (page - 1) * limit;
+
+    const pipeline = [
+      { $match: filter },
+      {
+        $addFields: {
+          computedPrice: {
+            $cond: {
+              if: { $eq: ["$hasVariations", true] },
+              then: { $ifNull: [{ $arrayElemAt: ["$variationPrices.finalSellingPrice", 0] }, 0] },
+              else: "$finalSellingPrice",
+            },
+          },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          productName: 1,
+          shortDescription: 1,
+          gender: 1,
+          tone: 1,
+          occasions: 1,
+          weight: 1,
+          hasVariations: 1,
+          price: 1,
+          finalSellingPrice: 1,
+          inStock: 1,
+          productUrl: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    ];
+
+    const products = await Product.aggregate(pipeline);
+
+    const totalProducts = await Product.countDocuments(filter);
+
+    const enrichedProducts = products.map((product) => {
+      const shortId = Math.abs(crc32.str(product._id.toString()));
+      const imageUrl = `https://api.aromagicperfume.com/api/v1/products/product-image/${product._id}`;
+      const price = product.finalSellingPrice || product.price || 0;
+
+      const tags = [
+        ...(product.occasions?.map((o) => o.label) || []),
+        product.tone?.label,
+        product.gender,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      return {
+        id: shortId,
+        title: product.productName,
+        body_html: `<p>${product.shortDescription || product.productName}</p>`,
+        vendor: "Aromagic",
+        product_type: "Perfume",
+        created_at: product.createdAt,
+        handle: product.productUrl,
+        updated_at: product.updatedAt,
+        tags,
+        status: product.inStock ? "active" : "draft",
+        variants: [
+          {
+            id: shortId + 1,
+            title: "Default",
+            price: price.toFixed(2),
+            sku: `${product.productName.toUpperCase().replace(/\s+/g, '-')}-${product.gender?.toUpperCase() || "GEN"}`,
+            created_at: product.createdAt,
+            updated_at: product.updatedAt,
+            taxable: true,
+            grams: (product.weight || 0) * 1000,
+            weight: product.weight || 0,
+            weight_unit: "g",
+            image: {
+              src: imageUrl,
+            },
+          },
+        ],
+        image: {
+          src: imageUrl,
+        },
+      };
+    });
+
+    res.status(200).json({
+      data: {
+        total: totalProducts,
+        products: enrichedProducts,
+      },
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error fetching products:", error);
+    res.status(500).json({ message: "Failed to fetch products", success: false });
+  }
 };
+
 
 export const getProductFeeds = async (req, res) => {
     try {
