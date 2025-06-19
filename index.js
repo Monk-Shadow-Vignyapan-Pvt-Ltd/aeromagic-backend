@@ -78,6 +78,8 @@ app.use("/api/v1/offerBanners", routes.offerBannerRoute);
 app.use("/api/v1/tags", routes.tagRoute);
 app.use("/api/v1/ctas", routes.ctaRoute);
 app.use("/api/v1/reviews", routes.reviewRoute);
+app.use("/api/v1/stores", routes.storeRoute);
+app.use("/api/v1/promotions", routes.promotionRoute); 
 
 updateOrderStatusesAndSendEmails();
 

@@ -3,7 +3,7 @@ import { addProduct, getProducts,getPaginationProducts, getProductById,getProduc
      getProductsForHome,getRank1HomeProducts,getRank2HomeProducts,
      getProductsByCategory,getAllProducts,getProductsHeader,updateShowOnHomeProduct,getProductIds,
      addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff,getProductsByCollection,getProductFeeds,
-     getProductImageUrl} from "../controllers/product.controller.js";
+     getProductImageUrl,getProductsForRankByCategory,updateProductRank} from "../controllers/product.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -31,5 +31,7 @@ router.route("/setProductOnOff/:id").post( setProductOnOff);
 router.route("/getProductsByCollection").get( getProductsByCollection);
 router.route("/getProductFeeds").get( getProductFeeds);
 router.route("/product-image/:id").get( getProductImageUrl);
+router.route("/getProductsForRankByCategory").get( getProductsForRankByCategory);
+router.route("/updateProductRank").post( updateProductRank);
 
 export default router;

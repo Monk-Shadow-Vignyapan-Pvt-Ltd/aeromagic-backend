@@ -33,6 +33,8 @@ import offerBannerRoute from "./offerBanner.route.js";
 import tagRoute from "./tag.route.js";
 import ctaRoute from "./cta.route.js";
 import reviewRoute from "./review.route.js";
+import storeRoute from "./store.route.js";
+import promotionRoute from "./promotion.route.js";
 
 const routes = {
   categoryRoute,
@@ -69,7 +71,9 @@ const routes = {
   offerBannerRoute,
   tagRoute,
   ctaRoute,
-  reviewRoute
+  reviewRoute,
+  storeRoute,
+  promotionRoute
 };
 
 export default routes;

@@ -105,6 +105,10 @@ const productSchema = new mongoose.Schema({
         type: String,
         required: false,
       },
+      rank:{
+        type: String, // Store image as base64 or use a URL reference
+        required: false,    
+      },
        schema: {
       type: String, // Store image as base64 or use a URL reference
       required: false,
