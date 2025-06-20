@@ -7,6 +7,7 @@ export const addStore = async (req, res) => {
             storeTitle,
             storeManager, 
             mapUrl, 
+            embedMapUrl,
             storeAddress, 
             storeContactNo, 
             storeImage, 
@@ -18,7 +19,7 @@ export const addStore = async (req, res) => {
         } = req.body;
 
         // Validate required fields
-        if (!storeTitle || !mapUrl || !storeImage || !storeUrl) {
+        if (!storeTitle || !mapUrl || !embedMapUrl || !storeImage || !storeUrl) {
             return res.status(400).json({ 
                 message: 'Missing required fields', 
                 success: false 
@@ -38,6 +39,7 @@ export const addStore = async (req, res) => {
             storeTitle,
             storeManager,
             mapUrl,
+            embedMapUrl,
             storeAddress,
             storeContactNo,
             storeImage,
@@ -109,7 +111,7 @@ export const getStoreById = async (req, res) => {
 // Get store by URL
 export const getStoreByUrl = async (req, res) => {
     try {
-        const { storeUrl } = req.params.id;
+        const { id: storeUrl } = req.params;
         
         // Find store by URL (case insensitive)
         const store = await Store.findOne({ storeUrl });
@@ -145,6 +147,7 @@ export const updateStore = async (req, res) => {
             storeTitle, 
             storeManager,
             mapUrl, 
+            embedMapUrl,
             storeAddress, 
             storeContactNo, 
             storeImage, 
@@ -179,6 +182,7 @@ export const updateStore = async (req, res) => {
             storeTitle,
             storeManager,
             mapUrl,
+            embedMapUrl,
             storeAddress,
             storeContactNo,
             ...(storeImage && { storeImage }),

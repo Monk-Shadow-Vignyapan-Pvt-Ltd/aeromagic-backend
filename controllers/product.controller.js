@@ -592,7 +592,15 @@ export const getProductsByCategory = async (req, res) => {
 
     if (brand) match.brand = brand;
     if (tone) match['tone.label'] = { $in: tone.split(',') };
-    if (occasion) match.occasions = { $elemMatch: { label: { $in: occasion.split(',') } } };
+    //if (occasion) match.occasions = { $elemMatch: { label: { $in: occasion.split(',') } } };
+    if (occasion) {
+      const occasionArray = occasion.split(',');
+      match.$or = [
+        { 'occasions.label': { $in: occasionArray } },
+        { occasions: { $in: occasionArray } },
+      ];
+    }
+
     if (gender) match.gender = { $in: gender.split(',') };
     if (rating) match.rating = { $gte: parseFloat(rating) };
 
@@ -659,35 +667,44 @@ export const getProductsByCategory = async (req, res) => {
 
     // Compute price based on first variation only
     pipeline.push({
-      $addFields: {
-        computedPrice: {
-          $cond: {
-            if: { $eq: ['$hasVariations', true] },
-            then: { $ifNull: [{ $arrayElemAt: ['$variationPrices.finalSellingPrice', 0] }, 0] },
-            else: '$finalSellingPrice',
-          },
-        },
+  $addFields: {
+    computedPrice: {
+      $cond: {
+        if: { $eq: ['$hasVariations', true] },
+        then: { $ifNull: [{ $arrayElemAt: ['$variationPrices.finalSellingPrice', 0] }, 0] },
+        else: '$finalSellingPrice',
       },
-    });
-
-    // Sorting logic
-    let sort = {};
-    switch (sortOption) {
-      case 'price-low-high':
-        sort = { computedPrice: 1 };
-        break;
-      case 'price-high-low':
-        sort = { computedPrice: -1 };
-        break;
-      case 'rating-high-low':
-        sort = { rating: -1 };
-        break;
-      case 'rating-low-high':
-        sort = { rating: 1 };
-        break;
-      default:
-        sort = { createdAt: -1 };
+    },
+    numericRank: {
+      $cond: {
+        if: { $ne: ['$rank', null] },
+        then: { $toInt: '$rank' },
+        else: 9999
+      }
     }
+  }
+});
+
+// Sorting logic
+let sort = {};
+switch (sortOption) {
+  case 'price-low-high':
+    sort = { computedPrice: 1, _id: 1 };
+    break;
+  case 'price-high-low':
+    sort = { computedPrice: -1, _id: 1 };
+    break;
+  case 'rating-high-low':
+    sort = { rating: -1, _id: 1 };
+    break;
+  case 'rating-low-high':
+    sort = { rating: 1, _id: 1 };
+    break;
+  default:
+    sort = { numericRank: 1, _id: 1 };
+    break;
+}
+
 
     // Final aggregation
     pipeline.push({
@@ -776,11 +793,11 @@ export const getAllProducts = async (req, res) => {
     if (brand) match.brand = brand;
     if (tone) match["tone.label"] = { $in: tone.split(",") };
     if (occasion) {
-      match.occasions = {
-        $elemMatch: {
-          label: { $in: occasion.split(",") }
-        }
-      };
+      const occasionArray = occasion.split(',');
+      match.$or = [
+        { 'occasions.label': { $in: occasionArray } },
+        { occasions: { $in: occasionArray } },
+      ];
     }
     if (gender) match.gender = { $in: gender.split(",") };
     if (rating) match.rating = { $gte: parseFloat(rating) };
@@ -867,20 +884,20 @@ export const getAllProducts = async (req, res) => {
     // Sorting logic
     let sort = {};
     switch (sortOption) {
-      case "price-low-high":
-        sort = { computedPrice: 1 };
+      case 'price-low-high':
+        sort = { computedPrice: 1, _id: 1 }; // add tie-breaker
         break;
-      case "price-high-low":
-        sort = { computedPrice: -1 };
+      case 'price-high-low':
+        sort = { computedPrice: -1, _id: 1 };
         break;
-      case "rating-high-low":
-        sort = { rating: -1 };
+      case 'rating-high-low':
+        sort = { rating: -1, _id: 1 };
         break;
-      case "rating-low-high":
-        sort = { rating: 1 };
+      case 'rating-low-high':
+        sort = { rating: 1, _id: 1 };
         break;
       default:
-        sort = { createdAt: -1 };
+        sort = { createdAt: -1, _id: 1 }; // add tie-breaker here too
     }
 
     // Use $facet for paginated results + total count

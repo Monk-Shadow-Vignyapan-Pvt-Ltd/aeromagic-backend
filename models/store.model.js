@@ -14,6 +14,10 @@ const storeSchema = new mongoose.Schema({
         type: String,
         required: true,
       },
+      embedMapUrl: {
+        type: String,
+        required: true,
+      },
       storeAddress: {
         type: String,
         required: false,
