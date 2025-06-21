@@ -4,6 +4,7 @@ import qs from 'qs';
 import FormData from 'form-data';
 import { Order } from '../models/order.model.js';
 import nodemailer from 'nodemailer'; 
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -81,6 +82,55 @@ export const checkPincode = async (req, res) => {
     } catch (error) {
         console.error('Error checking pincode:', error.message);
         return res.status(500).json({ message: 'Failed to check pincode', success: false });
+    }
+};
+
+export const generateCheckoutToken = async (req, res) => {
+    try {
+        const { variant_id } = req.body;
+
+        if (!variant_id ) {
+            return res.status(400).json({ message: 'variant_id required', success: false });
+        }
+
+        const timestamp = new Date().toISOString();
+
+        const payload = {
+            cart_data: {
+                items: [
+                    {
+                        variant_id:"1110548492",
+                        quantity:1
+                    }
+                ]
+            },
+            redirect_url: "https://test-checkout.requestcatcher.com/test?key=val",
+            timestamp
+        };
+
+        // Generate HMAC SHA256
+        const hmac = crypto
+            .createHmac('sha256', process.env.SHIPROCKET_API_SECRET)
+            .update(JSON.stringify(payload))
+            .digest('base64');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Api-Key': process.env.SHIPROCKET_API_KEY,
+            'X-Api-HMAC-SHA256': hmac
+        };
+
+        const response = await axios.post(process.env.SHIPROCKET_URL, payload, { headers });
+
+        return res.status(200).json({ data: response.data, success: true });
+
+    } catch (error) {
+        console.error('Error generating Shiprocket token:', error.response?.data || error.message);
+        return res.status(500).json({
+            message: 'Failed to generate checkout token',
+            success: false,
+            details: error.response?.data || error.message
+        });
     }
 };
 
