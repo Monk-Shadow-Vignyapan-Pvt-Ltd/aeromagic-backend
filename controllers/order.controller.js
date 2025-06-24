@@ -661,6 +661,8 @@ export const getOrdersExcel = async (req, res) => {
         totalAmount,
         paymentMode,
         customerId,
+        couponDiscount,
+        shippingCharge,
         status,
         cartItems = [],
       } = order;
@@ -763,8 +765,9 @@ for (const item of cartItems) {
     freeQty: item.baseUnit === 0 ? 1 : 0,
     phone:customerId.phoneNumber,
     customerName:customerId.fullName,
-    cashAmount:orderType === "COD" ? 0 : baseUnit,
-    creditAmount:orderType === "COD" ? baseUnit : 0
+    cashAmount: orderType === "COD" ? 0 : adjustedFinal,
+creditAmount: orderType === "COD" ? adjustedFinal : 0
+
   });
 
 }
