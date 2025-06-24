@@ -613,72 +613,181 @@ export const getOrdersExcel = async (req, res) => {
     const { startDate, endDate } = req.query;
 
     const filter = {};
-
     if (startDate && endDate) {
-      filter.createdAt = {
-        $gte: new Date(startDate),
-        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
-      };
-    }
+  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+
+  const utcStart = new Date(new Date(startDate).getTime() - istOffsetMs);
+  const utcEnd = new Date(new Date(endDate).setHours(23, 59, 59, 999) - istOffsetMs);
+
+  filter.createdAt = {
+    $gte: utcStart,
+    $lte: utcEnd,
+  };
+}
 
     const orders = await Order.find(filter)
       .populate("customerId")
       .sort({ createdAt: -1 });
 
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Orders');
+    const worksheet = workbook.addWorksheet("Orders");
 
     worksheet.columns = [
-      { header: 'INV. DATE', key: 'createdAt', width: 20 },
-      { header: 'INV. NO.', key: 'orderId', width: 25 },
-      { header: 'PARTY NAME', key: 'customer', width: 30 },
-      { header: 'ITEM GROUP NAME', key: 'category', width: 30 },
-      { header: 'Status', key: 'status', width: 15 },
-      { header: 'Total Amount', key: 'totalAmount', width: 20 },
-      { header: 'Payment Mode', key: 'paymentMode', width: 20 },
+      { header: "INV. DATE", key: "createdAt", width: 15 },
+      { header: "INV. NO.", key: "orderId", width: 20 },
+      { header: "ITEM GROUP NAME", key: "category", width: 25 },
+      { header: "HSN CODE", key: "hsn", width: 15 },
+      { header: "CGST%", key: "cgst", width: 10 },
+      { header: "SGST%", key: "sgst", width: 10 },
+      { header: "IGST%", key: "igst", width: 10 },
+      { header: "BRAND NAME", key: "brandName", width: 20 },
+      { header: "PRODUCT NAME", key: "productName", width: 25 },
+      { header: "SALE RATE", key: "saleRate", width: 15 },
+      { header: "DISCOUNT AMOUNT", key: "discountAmount", width: 20 },
+      { header: "QUANTITY", key: "qty", width: 10 },
+      { header: "FREE QUANTITY", key: "freeQty", width: 15 },
+       { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
+      { header: "CUSTOMER NAME", key: "customerName", width: 25 },
+      { header: "CASH Amount", key: "cashAmount", width: 20 },
+      { header: "CREDIT AMOUNT", key: "creditAmount", width: 20 },
     ];
 
     for (const order of orders) {
-      let categoryName = 'N/A';
+      const {
+        orderId,
+        createdAt,
+        orderType,
+        shippingAddress,
+        totalAmount,
+        paymentMode,
+        customerId,
+        status,
+        cartItems = [],
+      } = order;
 
-      try {
-        const firstCartItem = order.cartItems?.[0];
-        if (firstCartItem?.categoryId) {
-          const category = await Category.findById(firstCartItem.categoryId).select('categoryName');
-          categoryName = category?.categoryName || 'N/A';
+      const istDate = new Date(new Date(createdAt).getTime() + (5.5 * 60 * 60 * 1000));
+      const invoiceDate = istDate.toISOString().split("T")[0];
+      const isGujarat = shippingAddress?.state === "Gujarat";
+
+      const totalCartFinal = cartItems.reduce((sum, item) => sum + (item.finalSellingPrice * item.quantity), 0);
+
+for (const item of cartItems) {
+   let categoryName = "N/A";
+        try {
+          if (item?.categoryId) {
+            const category = await Category.findById(item.categoryId).select("categoryName");
+            categoryName = category?.categoryName?.trim() || "N/A";
+          }
+        } catch (err) {
+          console.error(`Failed to fetch category for order ${order._id}`, err.message);
         }
-      } catch (err) {
-        console.error(`Failed to fetch category for order ${order._id}`, err.message);
-      }
 
-      worksheet.addRow({
-        createdAt: order.createdAt.toISOString().split("T")[0],
-        orderId: order.orderId,
-        customer: order.customerId?.fullname || 'N/A',
-        category: categoryName,
-        status: order.status,
-        totalAmount: order.totalAmount || 0,
-        paymentMode: order.paymentMode || 'N/A'
-      });
+        // Determine HSN and GST rate
+        let hsn = "";
+        let gstRate = { cgst: 0, sgst: 0, igst: 0 };
+
+        switch (categoryName) {
+          case "Perfume":
+            hsn = "3303";
+            gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+            break;
+          case "Attar":
+            hsn = "3302";
+            gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+            break;
+          case "Room Freshner":
+          case "Car Freshener":
+            hsn = "775798";
+            gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+            break;
+          case "Incense Stick":
+            hsn = "33074011";
+            gstRate = isGujarat ? { cgst: 2.5, sgst: 2.5, igst: 0 } : { cgst: 0, sgst: 0, igst: 5 };
+            break;
+          case "Dhoop Stick":
+            hsn = "33074011";
+            gstRate = isGujarat ? { cgst: 6, sgst: 6, igst: 0 } : { cgst: 0, sgst: 0, igst: 12 };
+            break;
+          case "Belt & Wallet":
+            hsn = "42023120";
+            gstRate = isGujarat ? { cgst: 6, sgst: 6, igst: 0 } : { cgst: 0, sgst: 0, igst: 12 };
+            break;
+        }
+
+  const qty = item.quantity || 1;
+  const finalTotalItem = item.finalSellingPrice * qty;
+
+  // Proportional distribution
+  const itemShareRatio = finalTotalItem / totalCartFinal;
+  const shareCoupon = +(couponDiscount * itemShareRatio).toFixed(2);
+  const shareShipping = +(shippingCharge * itemShareRatio).toFixed(2);
+
+  // 🔻 Adjusted total after applying -coupon +shipping
+  const adjustedFinal = +(finalTotalItem - shareCoupon + shareShipping).toFixed(2);
+
+  // GST %
+  const totalGST = gstRate.cgst + gstRate.sgst + gstRate.igst;
+
+  // 🔁 Base price reverse from GST
+  const baseTotal = +(adjustedFinal / (1 + totalGST / 100)).toFixed(2);
+  const baseUnit = +(baseTotal / qty).toFixed(2);
+
+  // 🎯 Reverse discount from base
+  const discount = item.discount || 0;
+  const discountType = item.discountType || "Flat Discount";
+
+  let priceBeforeDiscount = 0;
+  let discountAmount = 0;
+
+  if (discountType === "Percentage Discount") {
+    priceBeforeDiscount = +(baseUnit / (1 - discount / 100)).toFixed(2);
+    discountAmount = +(priceBeforeDiscount - baseUnit).toFixed(2);
+  } else {
+    priceBeforeDiscount = +(baseUnit + discount).toFixed(2);
+    discountAmount = discount;
+  }
+
+  worksheet.addRow({
+    createdAt: invoiceDate,
+    orderId,
+    category: categoryName,
+    hsn,
+    cgst: gstRate.cgst,
+    sgst: gstRate.sgst,
+    igst: gstRate.igst,
+    brandName: "Aromagic",
+    productName: item.name,
+    saleRate: baseUnit,
+    discountAmount,
+    qty,
+    freeQty: item.baseUnit === 0 ? 1 : 0,
+    phone:customerId.phoneNumber,
+    customerName:customerId.fullName,
+    cashAmount:orderType === "COD" ? 0 : baseUnit,
+    creditAmount:orderType === "COD" ? baseUnit : 0
+  });
+
+}
     }
 
     res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
     res.setHeader(
-      'Content-Disposition',
-      `attachment; filename=orders_${startDate || 'all'}_to_${endDate || 'all'}.xlsx`
+      "Content-Disposition",
+      `attachment; filename=orders_${startDate || "all"}_to_${endDate || "all"}.xlsx`
     );
 
     await workbook.xlsx.write(res);
     res.end();
-
   } catch (err) {
-    console.error('Excel Export Error:', err);
-    res.status(500).json({ message: 'Failed to export orders', success: false });
+    console.error("Excel Export Error:", err);
+    res.status(500).json({ message: "Failed to export orders", success: false });
   }
 };
+
+
 
 
 
