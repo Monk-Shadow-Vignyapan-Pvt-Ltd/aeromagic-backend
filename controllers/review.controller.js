@@ -1,4 +1,5 @@
 import { Review } from '../models/review.model.js';
+import mongoose from "mongoose";
 
 // Add a new review
 export const addReview = async (req, res) => {
@@ -41,23 +42,24 @@ export const getReviews = async (req, res) => {
     const productId = req.query.productId || null;
     const skip = (page - 1) * limit;
 
-    // Dynamic search conditions
-    const searchConditions = [];
+    const matchConditions = [];
 
     if (search) {
-      searchConditions.push(
-        { "customer.fullname": { $regex: search, $options: "i" } },
-        { "product.productName": { $regex: search, $options: "i" } }
-      );
+      matchConditions.push({
+        $or: [
+          { "customer.fullname": { $regex: search, $options: "i" } },
+          { "product.productName": { $regex: search, $options: "i" } }
+        ]
+      });
     }
 
     if (productId) {
-      searchConditions.push({ "product._id": new mongoose.Types.ObjectId(productId) });
+      matchConditions.push({
+        "product._id": new mongoose.Types.ObjectId(productId)
+      });
     }
 
-    const searchFilter = searchConditions.length
-      ? { $or: searchConditions }
-      : {};
+    const searchFilter = matchConditions.length ? { $and: matchConditions } : {};
 
     // Count total
     const totalResult = await Review.aggregate([
@@ -82,9 +84,10 @@ export const getReviews = async (req, res) => {
       { $match: searchFilter },
       { $count: "count" }
     ]);
+
     const total = totalResult[0]?.count || 0;
 
-    // Get paginated data
+    // Paginated reviews
     const reviews = await Review.aggregate([
       {
         $lookup: {
@@ -130,10 +133,11 @@ export const getReviews = async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (error) {
-    console.error(error);
+    console.error("Review Fetch Error:", error);
     res.status(500).json({ message: "Failed to fetch reviews", success: false });
   }
 };
+
 
 
 export const getReviewImageUrl = async (req, res) => {

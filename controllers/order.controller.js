@@ -635,6 +635,7 @@ export const getOrdersExcel = async (req, res) => {
     worksheet.columns = [
       { header: "INV. DATE", key: "createdAt", width: 15 },
       { header: "INV. NO.", key: "orderId", width: 20 },
+       { header: "BARCODE", key: "barcode", width: 20 },
       { header: "ITEM GROUP NAME", key: "category", width: 25 },
       { header: "HSN CODE", key: "hsn", width: 15 },
       { header: "CGST%", key: "cgst", width: 10 },
@@ -642,14 +643,17 @@ export const getOrdersExcel = async (req, res) => {
       { header: "IGST%", key: "igst", width: 10 },
       { header: "BRAND NAME", key: "brandName", width: 20 },
       { header: "PRODUCT NAME", key: "productName", width: 25 },
+      { header: "MRP", key: "mrp", width: 15 },
       { header: "SALE RATE", key: "saleRate", width: 15 },
       { header: "DISCOUNT AMOUNT", key: "discountAmount", width: 20 },
       { header: "QUANTITY", key: "qty", width: 10 },
       { header: "FREE QUANTITY", key: "freeQty", width: 15 },
+      { header: "SALE RATE W/GST", key: "saleRateWithGst", width: 20 },
        { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
       { header: "CUSTOMER NAME", key: "customerName", width: 25 },
       { header: "CASH Amount", key: "cashAmount", width: 20 },
       { header: "CREDIT AMOUNT", key: "creditAmount", width: 20 },
+
     ];
 
     for (const order of orders) {
@@ -685,6 +689,8 @@ for (const item of cartItems) {
         }
 
         // Determine HSN and GST rate
+        const barcode = `${item.name}-${item.id?.toString().slice(0, 4)}`;
+        const mrp = item.price;
         let hsn = "";
         let gstRate = { cgst: 0, sgst: 0, igst: 0 };
 
@@ -752,6 +758,7 @@ for (const item of cartItems) {
   worksheet.addRow({
     createdAt: invoiceDate,
     orderId,
+    barcode:barcode,
     category: categoryName,
     hsn,
     cgst: gstRate.cgst,
@@ -759,9 +766,11 @@ for (const item of cartItems) {
     igst: gstRate.igst,
     brandName: "Aromagic",
     productName: item.name,
+    mrp:mrp,
     saleRate: baseUnit,
     discountAmount,
     qty,
+    saleRateWithGst:adjustedFinal,
     freeQty: item.baseUnit === 0 ? 1 : 0,
     phone:customerId.phoneNumber,
     customerName:customerId.fullName,
