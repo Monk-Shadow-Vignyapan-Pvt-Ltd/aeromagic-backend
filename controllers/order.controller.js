@@ -773,7 +773,7 @@ for (const item of cartItems) {
     saleRateWithGst:adjustedFinal,
     freeQty: item.baseUnit === 0 ? 1 : 0,
     phone:customerId.phoneNumber,
-    customerName:customerId.fullName,
+    customerName:customerId.fullname,
     cashAmount: orderType === "COD" ? 0 : adjustedFinal,
 creditAmount: orderType === "COD" ? adjustedFinal : 0
 
