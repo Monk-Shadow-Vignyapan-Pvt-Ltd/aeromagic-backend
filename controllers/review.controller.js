@@ -3,7 +3,7 @@ import { Review } from '../models/review.model.js';
 // Add a new review
 export const addReview = async (req, res) => {
   try {
-    const { customer, product, rating, comment } = req.body;
+    const { customer, product, rating, comment,reviewImages } = req.body;
 
     if (!customer || !product || !rating) {
       return res.status(400).json({ message: 'Customer, product, and rating are required', success: false });
@@ -21,7 +21,7 @@ export const addReview = async (req, res) => {
       });
     }
 
-    const review = new Review({ customer, product, rating, comment });
+    const review = new Review({ customer, product, rating, comment,reviewImages });
     await review.save();
 
     res.status(201).json({ review, success: true });
@@ -38,15 +38,25 @@ export const getReviews = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const search = req.query.search || "";
+    const productId = req.query.productId || null;
     const skip = (page - 1) * limit;
 
-    const searchFilter = search
-      ? {
-          $or: [
-            { "customer.fullname": { $regex: search, $options: "i" } },
-            { "product.productName": { $regex: search, $options: "i" } }
-          ]
-        }
+    // Dynamic search conditions
+    const searchConditions = [];
+
+    if (search) {
+      searchConditions.push(
+        { "customer.fullname": { $regex: search, $options: "i" } },
+        { "product.productName": { $regex: search, $options: "i" } }
+      );
+    }
+
+    if (productId) {
+      searchConditions.push({ "product._id": new mongoose.Types.ObjectId(productId) });
+    }
+
+    const searchFilter = searchConditions.length
+      ? { $or: searchConditions }
       : {};
 
     // Count total
@@ -100,16 +110,17 @@ export const getReviews = async (req, res) => {
       { $limit: limit },
       {
         $project: {
-            _id: 1,
-            rating: 1,
-            comment: 1,
-            createdAt: 1,
-            "customer._id": 1,
-            "customer.fullname": 1,
-            "product._id": 1,
-            "product.productName": 1
+          _id: 1,
+          rating: 1,
+          comment: 1,
+          createdAt: 1,
+          reviewImageCount: { $size: { $ifNull: ["$reviewImages", []] } },
+          "customer._id": 1,
+          "customer.fullname": 1,
+          "product._id": 1,
+          "product.productName": 1
         }
-        }
+      }
     ]);
 
     res.status(200).json({
@@ -122,6 +133,35 @@ export const getReviews = async (req, res) => {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch reviews", success: false });
   }
+};
+
+
+export const getReviewImageUrl = async (req, res) => {
+   try {
+ const { reviewId, index } = req.params;
+ const review = await Review.findById(reviewId).select('reviewImages');
+
+ if (!review || !review.reviewImages?.[index]) {
+      return res.status(404).send('Image not found');
+    }
+
+const matches = review.reviewImages?.[index].match(/^data:(.+);base64,(.+)$/);
+if (!matches) {
+  return res.status(400).send('Invalid image format');
+}
+
+const mimeType = matches[1];
+const base64Data = matches[2];
+const buffer = Buffer.from(base64Data, 'base64');
+
+res.set('Content-Type', mimeType);
+res.send(buffer);
+
+} catch (err) {
+console.error('Image route error:', err);
+res.status(500).send('Error loading image');
+}
+
 };
 
 
@@ -143,7 +183,7 @@ export const getReviewById = async (req, res) => {
 export const updateReview = async (req, res) => {
     try {
         const { id } = req.params;
-        const { rating, comment } = req.body;
+        const { customer, product, rating, comment,reviewImages } = req.body;
 
         const updatedData = {};
         if (rating !== undefined) updatedData.rating = rating;

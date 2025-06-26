@@ -12,6 +12,10 @@ const reviewSchema = new mongoose.Schema({
     ref: "Product",
     required: true
   },
+  reviewImages:{
+     type: mongoose.Schema.Types.Mixed,
+     required:false
+  },
   rating: {
     type: Number,
     required: true,

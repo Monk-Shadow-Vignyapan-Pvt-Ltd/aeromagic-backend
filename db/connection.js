@@ -17,7 +17,7 @@ const connectDB = async () => {
         await initializeDefaultStatuses();
 
         const defaultAdminEmail = "admin@gmail.com";
-        const defaultAdminPassword = "admin123"; // Plaintext password (for example)
+        const defaultAdminPassword = "Admin##Monk##"; // Plaintext password (for example)
 
         const existingUser = await User.findOne({ email: defaultAdminEmail });
 
