@@ -5,6 +5,7 @@ import FormData from 'form-data';
 import { Order } from '../models/order.model.js';
 import nodemailer from 'nodemailer'; 
 import crypto from 'crypto';
+import crc32 from "crc-32";
 
 dotenv.config();
 
@@ -87,22 +88,31 @@ export const checkPincode = async (req, res) => {
 
 export const generateCheckoutToken = async (req, res) => {
     try {
-        const { variant_id } = req.body;
+        const { cartItems , couponCode,couponDiscount} = req.body;
 
-        if (!variant_id ) {
+        if (cartItems.length === 0 ) {
             return res.status(400).json({ message: 'variant_id required', success: false });
         }
+
+        const enrichedCartItems = cartItems.map((product) => {
+              const plain = product.toObject();
+              const shortId = Math.abs(crc32.str(product.id.toString()));
+              return {
+                variant_id: shortId + 1,
+                quantity: plain.quantity,
+             
+              };
+            });
 
         const timestamp = new Date().toISOString();
 
         const payload = {
             cart_data: {
-                items: [
-                    {
-                        variant_id:"1110548492",
-                        quantity:1
-                    }
-                ]
+                items: enrichedCartItems
+            },
+            cart_discount: { // If specified, only this fixed discount is applied.
+            coupon_code: couponCode,
+            amount: couponDiscount
             },
             redirect_url: "https://test-checkout.requestcatcher.com/test?key=val",
             timestamp

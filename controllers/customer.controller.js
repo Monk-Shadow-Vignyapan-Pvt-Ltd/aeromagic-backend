@@ -173,16 +173,16 @@ export const register = async (req, res) => {
 // Login Controller
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-    if (!email || !password) {
+    const { phoneNumber, password } = req.body;
+    if (!phoneNumber || !password) {
       return res.status(400).json({ msg: "Please enter all the fields" });
     }
 
-    const customer = await Customer.findOne({ email });
+    const customer = await Customer.findOne({ phoneNumber });
     if (!customer) {
       return res
         .status(400)
-        .send({ msg: "Customer with this email does not exist" });
+        .send({ msg: "Customer with this Phone Number does not exist" });
     }
 
     const isMatch = await bcryptjs.compare(password, customer.password);

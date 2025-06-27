@@ -23,6 +23,74 @@ const transporter = nodemailer.createTransport({
 });
 
 const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking) => {
+  // Calculate GST information for each item
+  const isGujarat = shippingAddress?.state === "Gujarat";
+  let totalCGST = 0;
+  let totalSGST = 0;
+  let totalIGST = 0;
+  
+  // Process each item to calculate GST
+  const itemsWithGST = await Promise.all(cartItems.map(async (item) => {
+    let categoryName = "N/A";
+    try {
+      if (item?.categoryId) {
+        const category = await Category.findById(item.categoryId).select("categoryName");
+        categoryName = category?.categoryName?.trim() || "N/A";
+      }
+    } catch (err) {
+      console.error(`Failed to fetch category for item ${item._id}`, err.message);
+    }
+
+    // Determine GST rate based on category and shipping state
+    let gstRate = { cgst: 0, sgst: 0, igst: 0 };
+    
+    switch (categoryName) {
+      case "Perfume":
+        gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+        break;
+      case "Attar":
+        gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+        break;
+      case "Room Freshner":
+      case "Car Freshener":
+        gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
+        break;
+      case "Incense Stick":
+        gstRate = isGujarat ? { cgst: 2.5, sgst: 2.5, igst: 0 } : { cgst: 0, sgst: 0, igst: 5 };
+        break;
+      case "Dhoop Stick":
+        gstRate = isGujarat ? { cgst: 6, sgst: 6, igst: 0 } : { cgst: 0, sgst: 0, igst: 12 };
+        break;
+      case "Belt & Wallet":
+        gstRate = isGujarat ? { cgst: 6, sgst: 6, igst: 0 } : { cgst: 0, sgst: 0, igst: 12 };
+        break;
+    }
+
+    const itemTotal = item.price * item.quantity;
+    const itemShareRatio = itemTotal / subtotal;
+    const shareCoupon = couponDiscount * itemShareRatio;
+    const shareShipping = shippingCharge * itemShareRatio;
+    const adjustedItemTotal = itemTotal - shareCoupon + shareShipping;
+    
+    // Calculate GST amounts
+    const cgstAmount = adjustedItemTotal * (gstRate.cgst / 100);
+    const sgstAmount = adjustedItemTotal * (gstRate.sgst / 100);
+    const igstAmount = adjustedItemTotal * (gstRate.igst / 100);
+    
+    // Add to totals
+    totalCGST += cgstAmount;
+    totalSGST += sgstAmount;
+    totalIGST += igstAmount;
+    
+    return {
+      ...item,
+      gstRate,
+      cgstAmount,
+      sgstAmount,
+      igstAmount
+    };
+  }));
+
   const mailOptions = {
     from: process.env.SMTP_EMAIL,
     to,
@@ -176,7 +244,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
                   border-bottom: 1px solid rgb(229, 231, 235);
                 "
               >
-                Quantity
+                Qty
               </th>
               <th
                 align="right"
@@ -188,10 +256,20 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
               >
                 Price
               </th>
+              <th
+                align="right"
+                style="
+                  padding: 8px 0px;
+                  font-weight: 600;
+                  border-bottom: 1px solid rgb(229, 231, 235);
+                "
+              >
+                GST
+              </th>
             </tr>
           </thead>
           <tbody>
-           ${cartItems
+           ${itemsWithGST
         .map(
           (item) => `
 <tr>
@@ -211,6 +289,12 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
   >
     ₹${item.price * item.quantity}
   </td>
+  <td
+    align="right"
+    style="padding: 8px 0px; border-bottom: 1px solid rgb(229, 231, 235);"
+  >
+    ${isGujarat ? `CGST ${item.gstRate.cgst}% + SGST ${item.gstRate.sgst}%` : `IGST ${item.gstRate.igst}%`}
+  </td>
 </tr>`
         )
         .join('')}
@@ -221,115 +305,79 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
           cellpadding="0"
           cellspacing="0"
           border="0"
-          style="margin-top: 16px"
+          style="margin-top: 16px;"
         >
           <tr>
-            <td align="right">
-              <p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-                <span style="font-weight: 600">Subtotal:</span> ₹${subtotal}
-              </p>
-               <p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-                <span style="font-weight: 600">Discount:</span> ₹${totalDiscount}
-              </p>
-              <p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-                <span style="font-weight: 600">Coupon Discount:</span> ₹${couponDiscount}
-              </p>
-              <p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-                <span style="font-weight: 600">Shipping:</span> ₹${shippingCharge}
-              </p>
-               ${giftPacking ? `<p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-              <span style="font-weight: 600">Gift Packing:</span> ₹100
-              </p>` : ""}
-              <p
-                style="
-                  margin: 8px 0px;
-                  font-size: 16px;
-                  font-weight: 600;
-                  width: 100%;
-                  max-width: 180px;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                "
-              >
-                <span style="font-weight: 600">Total:</span> ₹${finalTotal}
-              </p>
-            </td>
+            <td>
+        <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px">
+          Shipping Information
+        </h3>
+        <p style="margin: 0">${shippingAddress.honorific}. ${shippingAddress.fullName}</p>
+        <p style="margin: 0">${shippingAddress.flat}, ${shippingAddress.area}</p>
+        <p style="margin: 0">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.zip}</p>
+        <p style="margin: 0">India</p>
+        <p style="margin: 0">Phone: +91 ${shippingAddress.phone}</p>
+      </td>
+           <td align="right" style="vertical-align: top;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="left" style="font-weight: 600;">Subtotal:</td>
+      <td align="right">₹${(subtotal + couponDiscount - shippingCharge - totalCGST - totalSGST - totalIGST - (giftPacking ? 100 : 0)).toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td align="left" style="font-weight: 600;">Discount:</td>
+      <td align="right">- ₹${totalDiscount.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td align="left" style="font-weight: 600;">Coupon Discount:</td>
+      <td align="right">- ₹${couponDiscount.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td align="left" style="font-weight: 600;">Shipping:</td>
+      <td align="right">₹${shippingCharge.toFixed(2)}</td>
+    </tr>
+    ${
+      isGujarat
+        ? `
+    <tr>
+      <td align="left" style="font-weight: 600;">CGST:</td>
+      <td align="right">₹${totalCGST.toFixed(2)}</td>
+    </tr>
+    <tr>
+      <td align="left" style="font-weight: 600;">SGST:</td>
+      <td align="right">₹${totalSGST.toFixed(2)}</td>
+    </tr>
+    `
+        : `
+    <tr>
+      <td align="left" style="font-weight: 600;">IGST:</td>
+      <td align="right">₹${totalIGST.toFixed(2)}</td>
+    </tr>
+    `
+    }
+    ${
+      giftPacking
+        ? `
+    <tr>
+      <td align="left" style="font-weight: 600;">Gift Packing:</td>
+      <td align="right">₹100.00</td>
+    </tr>
+    `
+        : ''
+    }
+    <tr>
+      <td align="left" style="font-weight: 600;">Total:</td>
+      <td align="right">₹${finalTotal.toFixed(2)}</td>
+    </tr>
+  </table>
+</td>
+
           </tr>
         </table>
       </td>
     </tr>
   </table>
-  <table
-    width="100%"
-    cellpadding="0"
-    cellspacing="0"
-    border="0"
-    style="margin-bottom: 24px"
-  >
-    <tr>
-      <td>
-        <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px">
-          Shipping Information
-        </h3>
-        <p style="margin: 8px 0px">${shippingAddress.honorific}. ${shippingAddress.fullName}</p>
-        <p style="margin: 8px 0px">${shippingAddress.flat}, ${shippingAddress.area}</p>
-        <p style="margin: 8px 0px">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.zip}</p>
-        <p style="margin: 8px 0px">India</p>
-        <p style="margin: 8px 0px">Phone: +91 ${shippingAddress.phone}</p>
-      </td>
-    </tr>
-  </table>
+  
    <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td
@@ -368,15 +416,6 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       >
     </p>
     <p style="margin-top: 16px">© 2025 AroMagic Perfume</p>
-    <!-- <div style="margin-top: 4px">
-      <a href="#" style="text-decoration: underline; margin-right: 8px"
-        >Privacy Policy</a
-      >
-      |
-      <a href="#" style="text-decoration: underline; margin-left: 8px"
-        >Unsubscribe</a
-      >
-    </div>-->
   </div>
 </div>
         </body>
@@ -384,10 +423,9 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       `,
   };
 
-  //return transporter.sendMail(mailOptions);
   try {
     await transporter.sendMail(mailOptions);
-    console.log('Contact email sent successfully');
+    console.log('Order confirmation email sent successfully');
   } catch (error) {
     console.error('Error sending email:', error);
   }
@@ -648,6 +686,7 @@ export const getOrdersExcel = async (req, res) => {
       { header: "DISCOUNT AMOUNT", key: "discountAmount", width: 20 },
       { header: "QUANTITY", key: "qty", width: 10 },
       { header: "FREE QUANTITY", key: "freeQty", width: 15 },
+      { header: "SHIPPING CHARGE", key: "shipping", width: 15 },
       { header: "SALE RATE W/GST", key: "saleRateWithGst", width: 20 },
        { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
       { header: "CUSTOMER NAME", key: "customerName", width: 25 },
@@ -745,15 +784,7 @@ for (const item of cartItems) {
   const discountType = item.discountType || "Flat Discount";
 
   let priceBeforeDiscount = 0;
-  let discountAmount = 0;
 
-  if (discountType === "Percentage Discount") {
-    priceBeforeDiscount = +(baseUnit / (1 - discount / 100)).toFixed(2);
-    discountAmount = +(priceBeforeDiscount - baseUnit).toFixed(2);
-  } else {
-    priceBeforeDiscount = +(baseUnit + discount).toFixed(2);
-    discountAmount = discount;
-  }
 
   worksheet.addRow({
     createdAt: invoiceDate,
@@ -768,14 +799,15 @@ for (const item of cartItems) {
     productName: item.name,
     mrp:mrp,
     saleRate: baseUnit,
-    discountAmount,
+    discountAmount:shareCoupon,
     qty,
+    freeQty: baseUnit <= 0 ? 1 : 0,
+    shipping:shareShipping,
     saleRateWithGst:adjustedFinal,
-    freeQty: item.baseUnit === 0 ? 1 : 0,
     phone:customerId.phoneNumber,
     customerName:customerId.fullname,
     cashAmount: orderType === "COD" ? 0 : adjustedFinal,
-creditAmount: orderType === "COD" ? adjustedFinal : 0
+   creditAmount: orderType === "COD" ? adjustedFinal : 0
 
   });
 
