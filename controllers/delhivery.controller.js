@@ -136,6 +136,14 @@ export const generateCheckoutToken = async (req, res) => {
 
         const response = await axios.post(process.env.SHIPROCKET_URL, payload, { headers });
 
+        // const payload2 = {
+        //   order_id : response.data.data?.result.data.order_id,
+        //    timestamp
+        // }
+
+        // const response2 = await axios.post("https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details", payload2, { headers })
+        // console.log(response2)
+
         return res.status(200).json({ data: response.data, success: true });
 
     } catch (error) {
