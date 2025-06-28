@@ -148,7 +148,7 @@ export const getPaginationProducts = async (req, res) => {
     const totalProducts = await Product.countDocuments();
 
     const paginatedProducts = await Product.find()
-      .select("-multiImages -variationPrices")
+      .select("-multiImages")
       .sort({ _id: -1 })
       .skip(skip)
       .limit(Number(limit));
@@ -176,7 +176,21 @@ export const getPaginationProducts = async (req, res) => {
         updated_at: plain.updatedAt,
         tags,
         status: plain.inStock ? "active" : "draft",
-        variants: [
+        variants: plain.hasVariations ? plain.variationPrices.map((variation, index) => ({
+          id: shortId + index + 1,
+          title: `${plain.productName} - ${variation.value}` ,
+          price: variation.finalSellingPrice?.toFixed(2) || variation.price.toFixed(2),
+          sku: `${plain.productName.toUpperCase().replace(/\s+/g, '-')}-${variation.value || index + 1}`,
+          created_at: plain.createdAt,
+          updated_at: plain.updatedAt,
+          taxable: true,
+          grams: (variation.weight || plain.weight || 0) * 1000,
+          weight: variation.weight || plain.weight || 0,
+          weight_unit: "g",
+          image: {
+            src: `https://api.aromagicperfume.com/api/v1/products/productVariations/${plain._id}/${index}` || imageUrl
+          }
+        })):[
           {
             id: shortId + 1,
             title: "Default",
@@ -1192,6 +1206,7 @@ export const getProductsByCollection = async (req, res) => {
           occasions: 1,
           weight: 1,
           hasVariations: 1,
+          variationPrices:1,
           price: 1,
           finalSellingPrice: 1,
           inStock: 1,
@@ -1230,22 +1245,36 @@ export const getProductsByCollection = async (req, res) => {
         updated_at: product.updatedAt,
         tags,
         status: product.inStock ? "active" : "draft",
-        variants: [
+        variants: plain.hasVariations ? plain.variationPrices.map((variation, index) => ({
+          id: shortId + index + 1,
+          title: `${plain.productName} - ${variation.value}` ,
+          price: variation.finalSellingPrice?.toFixed(2) || variation.price.toFixed(2),
+          sku: `${plain.productName.toUpperCase().replace(/\s+/g, '-')}-${variation.value || index + 1}`,
+          created_at: plain.createdAt,
+          updated_at: plain.updatedAt,
+          taxable: true,
+          grams: (variation.weight || plain.weight || 0) * 1000,
+          weight: variation.weight || plain.weight || 0,
+          weight_unit: "g",
+          image: {
+            src: `https://api.aromagicperfume.com/api/v1/products/productVariations/${plain._id}/${index}` || imageUrl
+          }
+        })):[
           {
             id: shortId + 1,
             title: "Default",
             price: price.toFixed(2),
-            sku: `${product.productName.toUpperCase().replace(/\s+/g, '-')}-${product.gender?.toUpperCase() || "GEN"}`,
-            created_at: product.createdAt,
-            updated_at: product.updatedAt,
+            sku: `${plain.productName.toUpperCase().replace(/\s+/g, '-')}-${plain.gender?.toUpperCase() || "GEN"}`,
+            created_at: plain.createdAt,
+            updated_at: plain.updatedAt,
             taxable: true,
-            grams: (product.weight || 0) * 1000,
-            weight: product.weight || 0,
+            grams: (plain.weight || 0) * 1000,
+            weight: plain.weight || 0,
             weight_unit: "g",
             image: {
-              src: imageUrl,
-            },
-          },
+              src: imageUrl
+            }
+          }
         ],
         image: {
           src: imageUrl,
@@ -1331,6 +1360,34 @@ if (!product || !product.productImage) {
 return res.status(404).send('Image not found');
 }
 const matches = product.productImage.match(/^data:(.+);base64,(.+)$/);
+if (!matches) {
+  return res.status(400).send('Invalid image format');
+}
+
+const mimeType = matches[1];
+const base64Data = matches[2];
+const buffer = Buffer.from(base64Data, 'base64');
+
+res.set('Content-Type', mimeType);
+res.send(buffer);
+
+} catch (err) {
+console.error('Image route error:', err);
+res.status(500).send('Error loading image');
+}
+
+};
+
+export const getProductVariationsImageUrl = async (req, res) => {
+   try {
+ const { productId, index } = req.params;
+ const product = await Product.findById(productId).select('variationPrices');
+
+ if (!product || !product.variationPrices?.[index]) {
+      return res.status(404).send('Image not found');
+    }
+
+const matches = product.variationPrices[index].images[0].match(/^data:(.+);base64,(.+)$/);
 if (!matches) {
   return res.status(400).send('Invalid image format');
 }

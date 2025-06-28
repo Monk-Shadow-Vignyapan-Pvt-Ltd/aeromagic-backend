@@ -1,9 +1,9 @@
 import express from "express";
 import { addProduct, getProducts,getPaginationProducts, getProductById,getProductByUrl, deleteProduct, updateProduct,
-     getProductsForHome,getRank1HomeProducts,getRank2HomeProducts,
-     getProductsByCategory,getAllProducts,getProductsHeader,updateShowOnHomeProduct,getProductIds,
-     addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff,getProductsByCollection,getProductFeeds,
-     getProductImageUrl,getProductsForRankByCategory,updateProductRank} from "../controllers/product.controller.js";
+     getProductsForHome,getRank1HomeProducts,getRank2HomeProducts,getProductsByCategory,getAllProducts,getProductsHeader,
+     updateShowOnHomeProduct,getProductIds,addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff,
+     getProductsByCollection,getProductFeeds,getProductImageUrl,getProductVariationsImageUrl,getProductsForRankByCategory,
+     updateProductRank} from "../controllers/product.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -31,6 +31,7 @@ router.route("/setProductOnOff/:id").post( setProductOnOff);
 router.route("/getProductsByCollection").get( getProductsByCollection);
 router.route("/getProductFeeds").get( getProductFeeds);
 router.route("/product-image/:id").get( getProductImageUrl);
+router.route("/productVariations/:productId/:index").get( getProductVariationsImageUrl);
 router.route("/getProductsForRankByCategory").get( getProductsForRankByCategory);
 router.route("/updateProductRank").post( updateProductRank);
 

@@ -95,14 +95,18 @@ export const generateCheckoutToken = async (req, res) => {
         }
 
         const enrichedCartItems = cartItems.map((product) => {
-              const plain = product.toObject();
-              const shortId = Math.abs(crc32.str(product.id.toString()));
-              return {
-                variant_id: shortId + 1,
-                quantity: plain.quantity,
-             
-              };
-            });
+          let cleanProductId = product.id;
+          let variationIndex = 0;
+          if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+            cleanProductId = product.id.split("_")[0];
+            variationIndex = product.id.split("_")[1];
+          }
+            const shortId = Math.abs(crc32.str(cleanProductId.toString()));
+            return {
+                variant_id: shortId + parseInt(variationIndex) + 1,
+                quantity: product.quantity,
+            };
+        });
 
         const timestamp = new Date().toISOString();
 
@@ -114,7 +118,7 @@ export const generateCheckoutToken = async (req, res) => {
             coupon_code: couponCode,
             amount: couponDiscount
             },
-            redirect_url: "https://test-checkout.requestcatcher.com/test?key=val",
+            redirect_url: "https://aromagicperfume.com/order-successful",
             timestamp
         };
 
