@@ -1,5 +1,6 @@
 import express from "express";
-import { addProduct, getProducts,getPaginationProducts, getProductById,getProductByUrl, deleteProduct, updateProduct,
+import { addProduct, getProducts,getPaginationProducts,getPaginationProductsExcel, getProductById,getProductByUrl, deleteProduct, 
+     updateProduct,
      getProductsForHome,getRank1HomeProducts,getRank2HomeProducts,getProductsByCategory,getAllProducts,getProductsHeader,
      updateShowOnHomeProduct,getProductIds,addProductInSearch,getProductInSearch,getProductsAfterInSearch,setProductOnOff,
      getProductsByCollection,getProductFeeds,getProductImageUrl,getProductVariationsImageUrl,getProductsForRankByCategory,
@@ -12,6 +13,7 @@ const router = express.Router();
 router.route("/addProduct").post( addProduct);
 router.route("/getProducts").get( getProducts);
 router.route("/getPaginationProducts").get( getPaginationProducts);
+router.route("/getPaginationProductsExcel").get( getPaginationProductsExcel);
 router.route("/getProductById/:id").put( getProductById);
 router.route("/getProductByUrl/:id").put( getProductByUrl);
 router.route("/updateProduct/:id").post( updateProduct);

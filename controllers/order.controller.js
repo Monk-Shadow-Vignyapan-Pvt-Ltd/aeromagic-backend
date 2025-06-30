@@ -673,7 +673,8 @@ export const getOrdersExcel = async (req, res) => {
     worksheet.columns = [
       { header: "INV. DATE", key: "createdAt", width: 15 },
       { header: "INV. NO.", key: "orderId", width: 20 },
-       { header: "BARCODE", key: "barcode", width: 20 },
+      { header: "BARCODE", key: "barcode", width: 20 },
+      { header: "STATUS", key: "status", width: 20 },
       { header: "ITEM GROUP NAME", key: "category", width: 25 },
       { header: "HSN CODE", key: "hsn", width: 15 },
       { header: "CGST%", key: "cgst", width: 10 },
@@ -790,6 +791,7 @@ for (const item of cartItems) {
     createdAt: invoiceDate,
     orderId,
     barcode:barcode,
+    status:status,
     category: categoryName,
     hsn,
     cgst: gstRate.cgst,

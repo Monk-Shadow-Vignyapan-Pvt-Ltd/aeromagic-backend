@@ -6,6 +6,7 @@ import { ProductSearch } from '../models/product_search.model.js';
 import { create } from 'xmlbuilder2';
 import fs from "fs";
 import crc32 from "crc-32";
+import ExcelJS from 'exceljs';
 
 // Add a new product
 export const addProduct = async (req, res) => {
@@ -184,7 +185,7 @@ export const getPaginationProducts = async (req, res) => {
           created_at: plain.createdAt,
           updated_at: plain.updatedAt,
           taxable: true,
-          grams: (variation.weight || plain.weight || 0) * 1000,
+          grams: (variation.weight || plain.weight || 0),
           weight: variation.weight || plain.weight || 0,
           weight_unit: "g",
           image: {
@@ -199,7 +200,7 @@ export const getPaginationProducts = async (req, res) => {
             created_at: plain.createdAt,
             updated_at: plain.updatedAt,
             taxable: true,
-            grams: (plain.weight || 0) * 1000,
+            grams: (plain.weight || 0),
             weight: plain.weight || 0,
             weight_unit: "g",
             image: {
@@ -226,7 +227,102 @@ export const getPaginationProducts = async (req, res) => {
   }
 };
 
+export const getPaginationProductsExcel = async (req, res) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
 
+    const products = await Product.find()
+      .select("-multiImages")
+      .sort({ _id: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+   const categories= await Category.find().select("categoryName");
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Products');
+
+    // Define headers
+    worksheet.columns = [
+      { header: 'Product ID', key: 'id', width: 10 },
+      { header: 'Barcode', key: 'barcode', width: 30 },
+      { header: 'Category', key: 'category', width: 30 },
+      { header: 'Product Name', key: 'title', width: 30 },
+      { header: 'Variant Title', key: 'variant_title', width: 30 },
+      { header: 'Price', key: 'price', width: 10 },
+      { header: 'SKU', key: 'sku', width: 25 },
+      { header: 'Weight (g)', key: 'weight', width: 15 },
+      { header: 'Tags', key: 'tags', width: 30 },
+      { header: 'In Stock', key: 'inStock', width: 10 },
+      { header: 'Created At', key: 'created_at', width: 20 }
+    ];
+
+    // Add rows
+    products.forEach(product => {
+      const plain = product.toObject();
+      const shortId = Math.abs(crc32.str(product._id.toString()));
+      const barcode = `${product.productName}-${product._id?.toString().slice(0, 4)}`;
+      const category = categories.find(cat => cat._id.toString() === product.categoryId.toString()).categoryName;
+      const baseTitle = plain.productName;
+      const tags = [
+        ...(plain.occasions?.map(o => o.label) || []),
+        plain.tone?.label,
+        plain.gender
+      ].filter(Boolean).join(", ");
+
+      if (plain.hasVariations && Array.isArray(plain.variationPrices)) {
+        plain.variationPrices.forEach((variation, index) => {
+          worksheet.addRow({
+            id: shortId,
+            barcode:barcode,
+            category:category,
+            title: baseTitle,
+            variant_title: `${baseTitle} - ${variation.value}`,
+            price: variation.finalSellingPrice?.toFixed(2) || variation.price.toFixed(2),
+            sku: `${baseTitle.toUpperCase().replace(/\s+/g, '-')}-${variation.value || index + 1}`,
+            weight: (variation.weight || plain.weight || 0) ,
+            tags,
+            inStock: variation.checked ? 'Yes' : 'No',
+            created_at: new Date(plain.createdAt).toLocaleString()
+          });
+        });
+      } else {
+        // No variation
+        const price = plain.finalSellingPrice || plain.price || 0;
+        worksheet.addRow({
+          id: shortId,
+          barcode:barcode,
+          category:category,
+          title: baseTitle,
+          variant_title: "Default",
+          price: price.toFixed(2),
+          sku: `${baseTitle.toUpperCase().replace(/\s+/g, '-')}-${plain.gender?.toUpperCase() || "GEN"}`,
+          weight: (plain.weight || 0),
+          tags,
+          inStock: plain.inStock ? 'Yes' : 'No',
+          created_at: new Date(plain.createdAt).toLocaleString()
+        });
+      }
+    });
+
+    // Set headers for file download
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="products_with_variants_page_${page}.xlsx"`
+    );
+
+    await workbook.xlsx.write(res);
+    res.end();
+  } catch (error) {
+    console.error("Error exporting products:", error);
+    res.status(500).json({ message: "Failed to export products", success: false });
+  }
+};
 
 
 
