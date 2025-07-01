@@ -434,7 +434,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
 // Add a new order
 export const addOrder = async (req, res) => {
   try {
-    const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage } = req.body;
+    const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage,shipRocketOrderId } = req.body;
 
     const now = new Date();
     const formattedDate = moment(now).format('DD-MM-YYYY');
@@ -458,7 +458,7 @@ export const addOrder = async (req, res) => {
       cartItems,
       status,
       orderId,
-      shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage
+      shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage,shipRocketOrderId
     });
 
     await order.save();
@@ -960,6 +960,110 @@ export const getOrdersByCustomerId = async (req, res) => {
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ message: 'Failed to fetch orders', success: false });
+  }
+};
+
+export const getLatestOrderByCustomerId = async (req, res) => {
+  try {
+    const customerId = req.params.id;
+    const order = await Order.findOne({ customerId })
+      .select('-returnItems.returnVideo')
+      .sort({ createdAt: -1 }); // latest order only
+
+    if (!order) {
+      return res.status(404).json({ message: "No orders found", success: false });
+    }
+
+    const loginForm = new FormData();
+    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+    const loginResponse = await axios.post(
+      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+      loginForm,
+      {
+        headers: {
+          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+          ...loginForm.getHeaders(),
+        },
+      }
+    );
+
+    if (loginResponse.data.success !== "1") {
+      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    }
+
+    let trackingInfo = null;
+    let newStatus = order.status;
+
+    if (order.selloShipAWB) {
+      const trackForm = new FormData();
+      trackForm.append("vendor_id", loginResponse.data.vendor_id);
+      trackForm.append("device_from", loginResponse.data.device_from);
+      trackForm.append("tracking_id", order.selloShipAWB);
+
+      try {
+        const trackResponse = await axios.post(
+          'https://selloship.com/api/lock_actvs/tracking_detail',
+          trackForm,
+          {
+            headers: {
+              Authorization: loginResponse.data.access_token,
+              ...trackForm.getHeaders(),
+            },
+          }
+        );
+
+        const statusCode = trackResponse.data.status_code;
+        newStatus =
+          statusCode === "2" ? "Shipped" :
+          statusCode === "3" ? "Delivered" :
+          statusCode === "4" || statusCode === "5" ? "Returned" :
+          statusCode === "6" ? "Cancelled" : "Processing";
+
+        if (order.status !== newStatus) {
+          await Order.findByIdAndUpdate(order._id, { status: newStatus });
+        }
+
+        trackingInfo = trackResponse.data;
+      } catch (err) {
+        console.error(`Tracking failed for order ${order._id}:`, err.message);
+      }
+    }
+
+    const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+      try {
+        let cleanProductId = item.id;
+        let variationIndex = 0;
+        if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+          cleanProductId = item.id.split("_")[0];
+          variationIndex = item.id.split("_")[1];
+        }
+
+        const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices");
+        return {
+          ...item,
+          img: product?.hasVariations && product.variationPrices[variationIndex]?.images?.[0]
+            ? product.variationPrices[variationIndex].images[0]
+            : product?.productImage || null,
+        };
+      } catch (err) {
+        console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+        return item;
+      }
+    }));
+
+    const enrichedOrder = {
+      ...order.toObject(),
+      status: newStatus,
+      trackingInfo,
+      cartItems: updatedCartItems,
+    };
+
+    res.status(200).json({ order: enrichedOrder, success: true });
+  } catch (error) {
+    console.error('Error fetching latest order:', error);
+    res.status(500).json({ message: 'Failed to fetch latest order', success: false });
   }
 };
 

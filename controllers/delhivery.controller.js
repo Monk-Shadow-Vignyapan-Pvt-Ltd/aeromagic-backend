@@ -108,6 +108,8 @@ export const generateCheckoutToken = async (req, res) => {
             };
         });
 
+        console.log(enrichedCartItems)
+
         const timestamp = new Date().toISOString();
 
         const payload = {
@@ -118,7 +120,7 @@ export const generateCheckoutToken = async (req, res) => {
             coupon_code: couponCode,
             amount: couponDiscount
             },
-            redirect_url: "https://aromagicperfume.com/order-successful",
+            redirect_url: "https://aromagicperfume.com/shiprocket-redirect",
             timestamp
         };
 
@@ -150,6 +152,55 @@ export const generateCheckoutToken = async (req, res) => {
         console.error('Error generating Shiprocket token:', error.response?.data || error.message);
         return res.status(500).json({
             message: 'Failed to generate checkout token',
+            success: false,
+            details: error.response?.data || error.message
+        });
+    }
+};
+
+export const getShiprocketOrder = async (req, res) => {
+    try {
+        const { orderId } = req.body;
+
+        const timestamp = new Date().toISOString();
+
+        const payload = {
+    
+          order_id: orderId,
+          timestamp
+            
+          
+        };
+
+
+        // Generate HMAC SHA256
+        const hmac = crypto
+            .createHmac('sha256', process.env.SHIPROCKET_API_SECRET)
+            .update(JSON.stringify(payload))
+            .digest('base64');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Api-Key': process.env.SHIPROCKET_API_KEY,
+            'X-Api-HMAC-SHA256': hmac
+        };
+
+        const response = await axios.post(process.env.SHIPROCKET_GET_ORDER_URL, payload, { headers });
+
+        // const payload2 = {
+        //   order_id : response.data.data?.result.data.order_id,
+        //    timestamp
+        // }
+
+        // const response2 = await axios.post("https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details", payload2, { headers })
+        // console.log(response2)
+
+        return res.status(200).json({ data: response.data, success: true });
+
+    } catch (error) {
+        console.error('Error Getting Order:', error.response?.data || error.message);
+        return res.status(500).json({
+            message: 'Failed to get order',
             success: false,
             details: error.response?.data || error.message
         });

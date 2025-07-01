@@ -75,6 +75,10 @@ const orderSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.Mixed,
         required: false 
     },
+    shipRocketOrderId:{
+        type: mongoose.Schema.Types.Mixed,
+        required: false 
+    },
     courierName:{
         type: String,
         required: false
