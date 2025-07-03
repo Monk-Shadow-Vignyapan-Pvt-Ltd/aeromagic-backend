@@ -434,13 +434,28 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
 // Add a new order
 export const addOrder = async (req, res) => {
   try {
-    const { customerId, orderType, cartItems, status, shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage,shipRocketOrderId } = req.body;
+    const {
+      orderType,
+      cartItems,
+      status,
+      shippingAddress,
+      subtotal,
+      totalDiscount,
+      couponDiscount,
+      shippingCharge,
+      finalTotal,
+      giftPacking,
+      removePriceFromInvoice,
+      addGiftMessage,
+      giftMessage,
+      shipRocketOrderId
+    } = req.body;
 
     const now = new Date();
     const formattedDate = moment(now).format('DD-MM-YYYY');
     const prefix = 'AM';
 
-    // Count how many orders exist for today
+    // Generate order ID
     const dateStart = moment().startOf('day').toDate();
     const dateEnd = moment().endOf('day').toDate();
 
@@ -452,19 +467,54 @@ export const addOrder = async (req, res) => {
     const orderNumber = String(todayOrders.length + 1).padStart(4, '0');
     const orderId = `${prefix}-${formattedDate}-${orderNumber}`;
 
+    // 🔍 Step 1: Find or create customer
+    let customer = await Customer.findOne({ phoneNumber: Number(shippingAddress.phone) });
+
+    if (!customer) {
+      customer = await Customer.create({
+        fullname: `${shippingAddress.first_name} ${shippingAddress.last_name}`,
+        email: shippingAddress.email,
+        phoneNumber: Number(shippingAddress.phone),
+        authType: "social"
+      });
+    }
+
+    // ✅ Step 2: Create order with customer._id
     const order = new Order({
-      customerId,
       orderType,
       cartItems,
       status,
       orderId,
-      shippingAddress, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking, removePriceFromInvoice, addGiftMessage, giftMessage,shipRocketOrderId
+      customer: customer._id, // ✅ store reference
+      shippingAddress,
+      subtotal,
+      totalDiscount,
+      couponDiscount,
+      shippingCharge,
+      finalTotal,
+      giftPacking,
+      removePriceFromInvoice,
+      addGiftMessage,
+      giftMessage,
+      shipRocketOrderId
     });
 
     await order.save();
-    const customer = await Customer.findById(customerId);
+
+    // 📧 Step 3: Send email if email exists
     if (customer?.email) {
-      await sendOrderConfirmationEmail(customer.email, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking);
+      await sendOrderConfirmationEmail(
+        customer.email,
+        orderId,
+        shippingAddress,
+        cartItems,
+        subtotal,
+        totalDiscount,
+        couponDiscount,
+        shippingCharge,
+        finalTotal,
+        giftPacking
+      );
     }
 
     res.status(201).json({ order, success: true });
@@ -473,6 +523,7 @@ export const addOrder = async (req, res) => {
     res.status(500).json({ message: 'Failed to add order', success: false });
   }
 };
+
 
 // Get all orders
 export const getOrders = async (req, res) => {

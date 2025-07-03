@@ -172,26 +172,27 @@ export const register = async (req, res) => {
 
 // Login Controller
 export const login = async (req, res) => {
-  try {
-    const { phoneNumber, password } = req.body;
-    if (!phoneNumber || !password) {
-      return res.status(400).json({ msg: "Please enter all the fields" });
+   try {
+    const { phoneNumber } = req.body;
+
+    if (!phoneNumber) {
+      return res.status(400).json({ msg: "Phone number is required" });
     }
 
     const customer = await Customer.findOne({ phoneNumber });
     if (!customer) {
       return res
         .status(400)
-        .send({ msg: "Customer with this Phone Number does not exist" });
+        .json({ msg: "You need to make a purchase before accessing this feature. Please complete your order." });
     }
 
-    const isMatch = await bcryptjs.compare(password, customer.password);
-    if (!isMatch) {
-      return res.status(400).send({ msg: "Incorrect password." });
-    }
+    // Optional: You may want to check if authType is "local"
+    // if (customer.authType !== "local") {
+    //   return res.status(400).json({ msg: "This login method is not allowed for social accounts" });
+    // }
 
     const token = jwt.sign({ id: customer._id }, "passwordKey");
-    res.json({ token, customer: customer });
+    res.json({ token, customer });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

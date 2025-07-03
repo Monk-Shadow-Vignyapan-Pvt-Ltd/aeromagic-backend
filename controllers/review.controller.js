@@ -47,7 +47,7 @@ export const getReviews = async (req, res) => {
     if (search) {
       matchConditions.push({
         $or: [
-          { "customer.fullname": { $regex: search, $options: "i" } },
+          { customer: { $regex: search, $options: "i" } },
           { "product.productName": { $regex: search, $options: "i" } }
         ]
       });
@@ -61,17 +61,8 @@ export const getReviews = async (req, res) => {
 
     const searchFilter = matchConditions.length ? { $and: matchConditions } : {};
 
-    // Count total
+    // Get total count
     const totalResult = await Review.aggregate([
-      {
-        $lookup: {
-          from: "customers",
-          localField: "customer",
-          foreignField: "_id",
-          as: "customer"
-        }
-      },
-      { $unwind: "$customer" },
       {
         $lookup: {
           from: "products",
@@ -87,17 +78,8 @@ export const getReviews = async (req, res) => {
 
     const total = totalResult[0]?.count || 0;
 
-    // Paginated reviews
+    // Get paginated reviews
     const reviews = await Review.aggregate([
-      {
-        $lookup: {
-          from: "customers",
-          localField: "customer",
-          foreignField: "_id",
-          as: "customer"
-        }
-      },
-      { $unwind: "$customer" },
       {
         $lookup: {
           from: "products",
@@ -117,26 +99,50 @@ export const getReviews = async (req, res) => {
           rating: 1,
           comment: 1,
           createdAt: 1,
+          customer: 1,
           reviewImageCount: { $size: { $ifNull: ["$reviewImages", []] } },
-          "customer._id": 1,
-          "customer.fullname": 1,
           "product._id": 1,
           "product.productName": 1
         }
       }
     ]);
 
+    // Get average rating if productId is provided
+    let averageRating = null;
+    if (productId) {
+      const avgResult = await Review.aggregate([
+        {
+          $match: {
+            product: new mongoose.Types.ObjectId(productId)
+          }
+        },
+        {
+          $group: {
+            _id: "$product",
+            avgRating: { $avg: "$rating" }
+          }
+        }
+      ]);
+
+      averageRating = avgResult[0]?.avgRating || null;
+    }
+
     res.status(200).json({
       reviews,
       total,
       page,
-      totalPages: Math.ceil(total / limit)
+      totalPages: Math.ceil(total / limit),
+      averageRating
     });
   } catch (error) {
     console.error("Review Fetch Error:", error);
     res.status(500).json({ message: "Failed to fetch reviews", success: false });
   }
 };
+
+
+
+
 
 
 
@@ -174,7 +180,7 @@ res.status(500).send('Error loading image');
 export const getReviewById = async (req, res) => {
     try {
         const { id } = req.params;
-        const review = await Review.findById(id).populate('customer product');
+        const review = await Review.findById(id).populate('product');
         if (!review) return res.status(404).json({ message: 'Review not found', success: false });
         res.status(200).json({ review, success: true });
     } catch (error) {

@@ -3,28 +3,29 @@ import mongoose from "mongoose";
 const customerSchema = new mongoose.Schema({
     fullname: {
         type: String,
-        required: false, // Optional for Google users
+        required: false,
     },
     email: {
         type: String,
-        required: true,
-        unique: true
+        required: false,
+        unique: true, // still enforces uniqueness of non-null values
+        sparse: true  // allows multiple documents without email
     },
     phoneNumber: {
         type: Number,
-        required: function() { return this.authType === 'local'; } // Required only for local users
+        required: function() { return this.authType === 'local'; }
     },
     password: {
         type: String,
-        required: function() { return this.authType === 'local'; } // Required only for local users
+        required: function() { return this.authType === 'local'; }
     },
     image: {
-        type: String, // Google profile image
+        type: String,
         required: false
     },
     authType: {
         type: String,
-        enum: ["local", "social"], // "local" for manual login, "social" for Google login
+        enum: ["local", "social"],
         required: true
     },
     otherAddress: {

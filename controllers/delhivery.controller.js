@@ -108,7 +108,6 @@ export const generateCheckoutToken = async (req, res) => {
             };
         });
 
-        console.log(enrichedCartItems)
 
         const timestamp = new Date().toISOString();
 
