@@ -275,9 +275,9 @@ export const getPaginationProductsExcel = async (req, res) => {
         plain.variationPrices.forEach((variation, index) => {
           worksheet.addRow({
             id: shortId,
-            barcode:barcode,
+            barcode:`${product.productName} - ${variation.value}-${product._id?.toString().slice(0, 4)}`,
             category:category,
-            title: baseTitle,
+            title: `${baseTitle} - ${variation.value}`,
             variant_title: `${baseTitle} - ${variation.value}`,
             price: variation.finalSellingPrice?.toFixed(2) || variation.price.toFixed(2),
             sku: `${baseTitle.toUpperCase().replace(/\s+/g, '-')}-${variation.value || index + 1}`,
