@@ -1,3 +1,4 @@
+import { Product } from '../models/product.model.js';
 import axios from "axios";
 import dotenv from "dotenv";
 import qs from 'qs';
@@ -88,19 +89,56 @@ export const checkPincode = async (req, res) => {
 
 export const generateCheckoutToken = async (req, res) => {
     try {
-        const { cartItems , couponCode,couponDiscount} = req.body;
+        const { cartItems , couponCode, couponDiscount } = req.body;
 
-        if (cartItems.length === 0 ) {
+        if (!Array.isArray(cartItems) || cartItems.length === 0) {
             return res.status(400).json({ message: 'variant_id required', success: false });
         }
 
+        // Collect all productIds (handle both with/without variations)
+        const productIds = cartItems.map(product => {
+            if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+                return product.id.split("_")[0];
+            }
+            return product.id;
+        });
+
+        // Check stock for all products
+        const products = await Product.find({ _id: { $in: productIds } }).select('hasVariations inStock variationPrices');
+        const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+        // Check each cart item for stock
+        for (const product of cartItems) {
+            let cleanProductId = product.id;
+            let variationIndex = 0;
+            if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+                cleanProductId = product.id.split("_")[0];
+                variationIndex = parseInt(product.id.split("_")[1], 10);
+            }
+            const dbProduct = productMap.get(cleanProductId);
+            if (!dbProduct) {
+                return res.status(404).json({ message: `Product not found: ${cleanProductId}`, success: false });
+            }
+            if (dbProduct.hasVariations && Array.isArray(dbProduct.variationPrices)) {
+                const variation = dbProduct.variationPrices[variationIndex];
+                if (!variation || !variation.checked) {
+                    return res.status(400).json({ message: `Product out of stock: ${cleanProductId} (variation ${variationIndex})`, success: false });
+                }
+            } else {
+                if (!dbProduct.inStock) {
+                    return res.status(400).json({ message: `Product out of stock: ${cleanProductId}`, success: false });
+                }
+            }
+        }
+
+        // If all products in stock, continue as before
         const enrichedCartItems = cartItems.map((product) => {
-          let cleanProductId = product.id;
-          let variationIndex = 0;
-          if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
-            cleanProductId = product.id.split("_")[0];
-            variationIndex = product.id.split("_")[1];
-          }
+            let cleanProductId = product.id;
+            let variationIndex = 0;
+            if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+                cleanProductId = product.id.split("_")[0];
+                variationIndex = product.id.split("_")[1];
+            }
             const shortId = Math.abs(crc32.str(cleanProductId.toString()));
             return {
                 variant_id: shortId + parseInt(variationIndex) + 1,
@@ -108,16 +146,15 @@ export const generateCheckoutToken = async (req, res) => {
             };
         });
 
-
         const timestamp = new Date().toISOString();
 
         const payload = {
             cart_data: {
                 items: enrichedCartItems
             },
-            cart_discount: { // If specified, only this fixed discount is applied.
-            coupon_code: couponCode,
-            amount: couponDiscount
+            cart_discount: {
+                coupon_code: couponCode,
+                amount: couponDiscount
             },
             redirect_url: "https://aromagicperfume.com/shiprocket-redirect",
             timestamp
@@ -136,14 +173,6 @@ export const generateCheckoutToken = async (req, res) => {
         };
 
         const response = await axios.post(process.env.SHIPROCKET_URL, payload, { headers });
-
-        // const payload2 = {
-        //   order_id : response.data.data?.result.data.order_id,
-        //    timestamp
-        // }
-
-        // const response2 = await axios.post("https://fastrr-api-dev.pickrr.com/api/v1/custom-platform-order/details", payload2, { headers })
-        // console.log(response2)
 
         return res.status(200).json({ data: response.data, success: true });
 
