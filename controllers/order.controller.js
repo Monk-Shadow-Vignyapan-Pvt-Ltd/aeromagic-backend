@@ -199,7 +199,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td style="padding-bottom: 24px">
-        <p style="margin: 0px 0px 8px">Hello <strong>${shippingAddress.honorific}. ${shippingAddress.fullName || "Customer"}</strong>,</p>
+        <p style="margin: 0px 0px 8px">Hello <strong>${shippingAddress.first_name} ${shippingAddress.last_name || "Customer"}</strong>,</p>
         <p style="margin: 0px">
           We've received your order <strong>${orderId}</strong> and it's being
           processed. Below are the details:
@@ -312,9 +312,9 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
         <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px">
           Shipping Information
         </h3>
-        <p style="margin: 0">${shippingAddress.honorific}. ${shippingAddress.fullName}</p>
-        <p style="margin: 0">${shippingAddress.flat}, ${shippingAddress.area}</p>
-        <p style="margin: 0">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.zip}</p>
+        <p style="margin: 0">${shippingAddress.first_name} ${shippingAddress.last_name}</p>
+        <p style="margin: 0">${shippingAddress.line1}, ${shippingAddress.line2}</p>
+        <p style="margin: 0">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.pincode}</p>
         <p style="margin: 0">India</p>
         <p style="margin: 0">Phone: +91 ${shippingAddress.phone}</p>
       </td>
@@ -485,7 +485,7 @@ export const addOrder = async (req, res) => {
       cartItems,
       status,
       orderId,
-      customer: customer._id, // ✅ store reference
+      customerId: customer._id, // ✅ store reference
       shippingAddress,
       subtotal,
       totalDiscount,
