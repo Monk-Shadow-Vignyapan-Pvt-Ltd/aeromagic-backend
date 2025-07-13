@@ -96,40 +96,40 @@ export const generateCheckoutToken = async (req, res) => {
         }
 
         // Collect all productIds (handle both with/without variations)
-        const productIds = cartItems.map(product => {
-            if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
-                return product.id.split("_")[0];
-            }
-            return product.id;
-        });
+        // const productIds = cartItems.map(product => {
+        //     if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+        //         return product.id.split("_")[0];
+        //     }
+        //     return product.id;
+        // });
 
-        // Check stock for all products
-        const products = await Product.find({ _id: { $in: productIds } }).select('hasVariations inStock variationPrices');
-        const productMap = new Map(products.map(p => [p._id.toString(), p]));
+        // // Check stock for all products
+        // const products = await Product.find({ _id: { $in: productIds } }).select('hasVariations inStock variationPrices');
+        // const productMap = new Map(products.map(p => [p._id.toString(), p]));
 
-        // Check each cart item for stock
-        for (const product of cartItems) {
-            let cleanProductId = product.id;
-            let variationIndex = 0;
-            if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
-                cleanProductId = product.id.split("_")[0];
-                variationIndex = parseInt(product.id.split("_")[1], 10);
-            }
-            const dbProduct = productMap.get(cleanProductId);
-            if (!dbProduct) {
-                return res.status(404).json({ message: `Product not found: ${cleanProductId}`, success: false });
-            }
-            if (dbProduct.hasVariations && Array.isArray(dbProduct.variationPrices)) {
-                const variation = dbProduct.variationPrices[variationIndex];
-                if (!variation || !variation.checked) {
-                    return res.status(400).json({ message: `Product out of stock: ${cleanProductId} (variation ${variationIndex})`, success: false });
-                }
-            } else {
-                if (!dbProduct.inStock) {
-                    return res.status(400).json({ message: `Product out of stock: ${cleanProductId}`, success: false });
-                }
-            }
-        }
+        // // Check each cart item for stock
+        // for (const product of cartItems) {
+        //     let cleanProductId = product.id;
+        //     let variationIndex = 0;
+        //     if (product.hasVariations && typeof product.id === "string" && product.id.includes("_")) {
+        //         cleanProductId = product.id.split("_")[0];
+        //         variationIndex = parseInt(product.id.split("_")[1], 10);
+        //     }
+        //     const dbProduct = productMap.get(cleanProductId);
+        //     if (!dbProduct) {
+        //         return res.status(404).json({ message: `Product not found: ${cleanProductId}`, success: false });
+        //     }
+        //     if (dbProduct.hasVariations && Array.isArray(dbProduct.variationPrices)) {
+        //         const variation = dbProduct.variationPrices[variationIndex];
+        //         if (!variation || !variation.checked) {
+        //             return res.status(400).json({ message: `Product out of stock: ${cleanProductId} (variation ${variationIndex})`, success: false });
+        //         }
+        //     } else {
+        //         if (!dbProduct.inStock) {
+        //             return res.status(400).json({ message: `Product out of stock: ${cleanProductId}`, success: false });
+        //         }
+        //     }
+        // }
 
         // If all products in stock, continue as before
         const enrichedCartItems = cartItems.map((product) => {

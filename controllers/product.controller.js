@@ -1556,3 +1556,89 @@ export const updateProductRank = async (req, res) => {
         res.status(500).json({ message: "Server Error", success: false });
     }
 };
+
+export const productsCheckInStock = async (req, res) => {
+  try {
+    const { cartItems } = req.body;
+
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+      return res.status(400).json({ message: 'variant_id required', success: false });
+    }
+
+    // Step 1: Normalize cart items
+    const normalizedItems = cartItems.map((item) => {
+      let productId = item.id;
+      let variationIndex = null;
+
+      if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+        const [idPart, indexPart] = item.id.split("_");
+        productId = idPart;
+        variationIndex = parseInt(indexPart, 10);
+      }
+
+      return { ...item, productId, variationIndex };
+    });
+
+    // Step 2: Fetch product documents
+    const productIds = [...new Set(normalizedItems.map(item => item.productId))];
+    const products = await Product.find({ _id: { $in: productIds } })
+      .select('_id hasVariations inStock variationPrices')
+      .lean();
+
+    const productMap = new Map(products.map(p => [p._id.toString(), p]));
+
+    // Step 3: Check stock and collect out-of-stock products
+    const outOfStockItems = [];
+
+    for (const item of normalizedItems) {
+      const dbProduct = productMap.get(item.productId);
+
+      if (!dbProduct) {
+        return res.status(404).json({ message: `Product not found: ${item.productId}`, success: false });
+      }
+
+      if (dbProduct.hasVariations) {
+        const variation = dbProduct.variationPrices?.[item.variationIndex];
+        if (!variation || !variation.checked) {
+          outOfStockItems.push({
+            cartItemId: item.id,      // e.g. productId_variationIndex
+            productId: dbProduct._id, // actual MongoDB _id
+            reason: 'Variation out of stock'
+          });
+        }
+      } else {
+        if (!dbProduct.inStock) {
+          outOfStockItems.push({
+            cartItemId: item.id,
+            productId: dbProduct._id,
+            reason: 'Product out of stock'
+          });
+        }
+      }
+    }
+
+    if (outOfStockItems.length > 0) {
+      return res.status(200).json({ 
+        message: 'Some products are out of stock',
+        outOfStockItems,
+        success: true // Note: Changed to true since we want to handle this on client
+      });
+    }
+
+    return res.status(200).json({ 
+      data: cartItems, 
+      outOfStockItems: [],
+      success: true 
+    });
+
+
+  } catch (error) {
+    console.error('Error in productsCheckInStock:', error);
+    return res.status(500).json({
+      message: 'Failed to check stock',
+      success: false,
+      details: error.message,
+    });
+  }
+};
+
