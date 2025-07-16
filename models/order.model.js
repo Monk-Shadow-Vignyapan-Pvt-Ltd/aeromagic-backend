@@ -43,6 +43,10 @@ const orderSchema = new mongoose.Schema({
         type: Number,
         required: false
     }, 
+    codCharge:{
+         type: Number,
+        required: false
+    },
     finalTotal: {
         type: Number,
         required: true

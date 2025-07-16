@@ -22,7 +22,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, shippingCharge, finalTotal, giftPacking) => {
+const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, shippingCharge,codCharge, finalTotal, giftPacking) => {
   // Calculate GST information for each item
   const isGujarat = shippingAddress?.state === "Gujarat";
   let totalCGST = 0;
@@ -365,6 +365,15 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
     `
         : ''
     }
+     ${
+      (codCharge && codCharge > 0)
+        ? `
+    <tr>
+      <td align="left" style="font-weight: 600;">COD Charge:</td>
+      <td align="right">₹${codCharge.toFixed(2)}</td>
+    </tr>`
+        : ''
+    }
     <tr>
       <td align="left" style="font-weight: 600;">Total:</td>
       <td align="right">₹${finalTotal.toFixed(2)}</td>
@@ -443,6 +452,7 @@ export const addOrder = async (req, res) => {
       totalDiscount,
       couponDiscount,
       shippingCharge,
+      codCharge,
       finalTotal,
       giftPacking,
       removePriceFromInvoice,
@@ -491,6 +501,7 @@ export const addOrder = async (req, res) => {
       totalDiscount,
       couponDiscount,
       shippingCharge,
+      codCharge,
       finalTotal,
       giftPacking,
       removePriceFromInvoice,
@@ -512,6 +523,7 @@ export const addOrder = async (req, res) => {
         totalDiscount,
         couponDiscount,
         shippingCharge,
+        codCharge,
         finalTotal,
         giftPacking
       );
@@ -739,6 +751,7 @@ export const getOrdersExcel = async (req, res) => {
       { header: "QUANTITY", key: "qty", width: 10 },
       { header: "FREE QUANTITY", key: "freeQty", width: 15 },
       { header: "SHIPPING CHARGE", key: "shipping", width: 15 },
+      { header: "COD CHARGE", key: "codCharge", width: 15 },
       { header: "SALE RATE W/GST", key: "saleRateWithGst", width: 20 },
        { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
       { header: "CUSTOMER NAME", key: "customerName", width: 25 },
@@ -758,6 +771,7 @@ export const getOrdersExcel = async (req, res) => {
         customerId,
         couponDiscount,
         shippingCharge,
+        codCharge,
         status,
         cartItems = [],
       } = order;
@@ -856,6 +870,7 @@ for (const item of cartItems) {
     qty,
     freeQty: baseUnit <= 0 ? 1 : 0,
     shipping:shareShipping,
+    codCharge:codCharge,
     saleRateWithGst:adjustedFinal,
     phone:customerId.phoneNumber,
     customerName:customerId.fullname,
@@ -892,11 +907,96 @@ for (const item of cartItems) {
 export const getOrderById = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findById(orderId);
+    const order = await Order.findById(orderId).select('-returnItems.returnVideo');
     if (!order) {
       return res.status(404).json({ message: "Order not found", success: false });
     }
-    res.status(200).json({ order, success: true });
+    const loginForm = new FormData();
+    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+
+    const loginResponse = await axios.post(
+      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+      loginForm,
+      {
+        headers: {
+          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+          ...loginForm.getHeaders(),
+        },
+      }
+    );
+
+    if (loginResponse.data.success !== "1") {
+      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    }
+
+    let trackingInfo = null;
+    let newStatus = order.status;
+
+    if (order.selloShipAWB) {
+      const trackForm = new FormData();
+      trackForm.append("vendor_id", loginResponse.data.vendor_id);
+      trackForm.append("device_from", loginResponse.data.device_from);
+      trackForm.append("tracking_id", order.selloShipAWB);
+
+      try {
+        const trackResponse = await axios.post(
+          'https://selloship.com/api/lock_actvs/tracking_detail',
+          trackForm,
+          {
+            headers: {
+              Authorization: loginResponse.data.access_token,
+              ...trackForm.getHeaders(),
+            },
+          }
+        );
+
+        const statusCode = trackResponse.data.status_code;
+        newStatus =
+          statusCode === "2" ? "Shipped" :
+          statusCode === "3" ? "Delivered" :
+          statusCode === "4" || statusCode === "5" ? "Returned" :
+          statusCode === "6" ? "Cancelled" : "Processing";
+
+        if (order.status !== newStatus) {
+          await Order.findByIdAndUpdate(order._id, { status: newStatus });
+        }
+
+        trackingInfo = trackResponse.data;
+      } catch (err) {
+        console.error(`Tracking failed for order ${order._id}:`, err.message);
+      }
+    }
+
+    const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+      try {
+        let cleanProductId = item.id;
+        let variationIndex = 0;
+        if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+          cleanProductId = item.id.split("_")[0];
+          variationIndex = item.id.split("_")[1];
+        }
+
+        const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices");
+        return {
+          ...item,
+          img: product?.hasVariations && product.variationPrices[variationIndex]?.images?.[0]
+            ? product.variationPrices[variationIndex].images[0]
+            : product?.productImage || null,
+        };
+      } catch (err) {
+        console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+        return item;
+      }
+    }));
+
+    const enrichedOrder = {
+      ...order.toObject(),
+      status: newStatus,
+      trackingInfo,
+      cartItems: updatedCartItems,
+    };
+    res.status(200).json({ order:enrichedOrder, success: true });
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ message: 'Failed to fetch order', success: false });
@@ -2447,6 +2547,20 @@ const cancelOrderMail = async (order) => {
               >
               <span style="font-weight: 600">Gift Packing:</span> ₹100
               </p>` : ""}
+              ${(cancelOrder.codCharge && cancelOrder.codCharge > 0) ? `<p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+              <span style="font-weight: 600">COD Charge:</span> ₹${cancelOrder.codCharge}
+              </p>` : ""}
+
               <p
                 style="
                   margin: 8px 0px;
@@ -2535,5 +2649,28 @@ const cancelOrderMail = async (order) => {
     }
   
 }
+
+// Update only the shipping address of an order
+export const updateOrderShippingAddress = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { shippingAddress } = req.body;
+    if (!shippingAddress) {
+      return res.status(400).json({ message: 'shippingAddress is required', success: false });
+    }
+    const order = await Order.findByIdAndUpdate(
+      id,
+      { shippingAddress },
+      { new: true, runValidators: true }
+    );
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found', success: false });
+    }
+    res.status(200).json({ order, success: true });
+  } catch (error) {
+    console.error('Error updating shipping address:', error);
+    res.status(500).json({ message: 'Failed to update shipping address', success: false });
+  }
+};
 
 
