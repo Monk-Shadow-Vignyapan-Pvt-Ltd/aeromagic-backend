@@ -660,37 +660,37 @@ export const getOrders = async (req, res) => {
 
 
     // Filter by customer name (if search query is given)
-    const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
-      const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
-        try {
-          let cleanProductId = item.id;
-          let variationIndex = 0;
-          if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
-            cleanProductId = item.id.split("_")[0];
-            variationIndex = item.id.split("_")[1];
-          }
+    // const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
+    //   const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+    //     try {
+    //       let cleanProductId = item.id;
+    //       let variationIndex = 0;
+    //       if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+    //         cleanProductId = item.id.split("_")[0];
+    //         variationIndex = item.id.split("_")[1];
+    //       }
 
-          const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
-          return {
-            ...item,
-            img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null, // fallback if img is not found
-          };
-        } catch (err) {
-          console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
-          return item; // return item as-is if fetch fails
-        }
-      }));
+    //       const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
+    //       return {
+    //         ...item,
+    //         img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null, // fallback if img is not found
+    //       };
+    //     } catch (err) {
+    //       console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+    //       return item; // return item as-is if fetch fails
+    //     }
+    //   }));
 
-      return {
-        ...order,
-        cartItems: updatedCartItems,
-      };
-    }));
+    //   return {
+    //     ...order,
+    //     cartItems: updatedCartItems,
+    //   };
+    // }));
 
-    let finalOrders = enrichedOrdersWithImages;
+    let finalOrders = enrichedOrders;
     if (search && search.trim() !== "") {
       const lowerSearch = search.toLowerCase();
-      finalOrders = enrichedOrdersWithImages.filter(order =>
+      finalOrders = enrichedOrders.filter(order =>
         order.customerId?.fullname?.toLowerCase().includes(lowerSearch)
       );
     }
@@ -907,7 +907,7 @@ for (const item of cartItems) {
 export const getOrderById = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findById(orderId).select('-returnItems.returnVideo');
+    const order = await Order.findById(orderId) .populate("customerId").select('-returnItems.returnVideo');
     if (!order) {
       return res.status(404).json({ message: "Order not found", success: false });
     }
