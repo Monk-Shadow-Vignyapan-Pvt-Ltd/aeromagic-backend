@@ -30,6 +30,10 @@ const orderSchema = new mongoose.Schema({
     subtotal: {
         type: Number,
         required: true
+    },
+    prepaidDiscount: {
+        type: Number,       
+        required: false
     }, 
     totalDiscount: {
         type: Number,

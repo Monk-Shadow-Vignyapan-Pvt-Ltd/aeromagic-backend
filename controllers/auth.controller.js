@@ -2,6 +2,10 @@ import { User } from '../models/user.model.js';
 import jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import sharp from 'sharp';
+import axios from 'axios';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 // Signup Controller
 export const addUser = async (req, res) => {
@@ -189,5 +193,84 @@ export const deleteUser = async (req, res) => {
         console.log(error);
         res.status(500).json({ message: 'Failed to delete user', success: false });
     }
+};
+
+export const sendOtp = async (req, res) => {
+  const { phoneNumber } = req.body;
+
+  // Generate random 6-digit OTP
+  //const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const mobile = `91${phoneNumber}`;
+  const templateId = '687e343ad6fc05768c3a5402'; // replace with your actual template ID
+
+  const url = `https://control.msg91.com/api/v5/otp?mobile=${mobile}&authkey=${process.env.MSG91_AUTH_KEY}&otp_expiry=5&otp_length=6&template_id=${templateId}&realTimeResponse=1`;
+
+  const body = {
+    Param1: "var1",
+    // Add Param2, Param3 if your template requires them
+  };
+
+  try {
+    const response = await axios.post(url, body, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    // Optionally store OTP in DB or cache for verification
+    res.status(200).json({ success: true, data: response.data });
+  } catch (error) {
+    console.error('MSG91 error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to send OTP' });
+  }
+};
+
+export const verifyOtp = async (req, res) => {
+  const { otp, mobile } = req.body;
+
+  try {
+    const response = await axios({
+      method: 'GET',
+      url: 'https://control.msg91.com/api/v5/otp/verify',
+      params: {
+        otp,
+        mobile: `91${mobile}`,
+      },
+      headers: {
+        authkey: process.env.MSG91_AUTH_KEY,
+      },
+    });
+
+    const msg91Response = response.data;
+
+    // handle success or failure from MSG91
+    if (msg91Response.type === 'success') {
+      return res.status(200).json({ success: true, data: msg91Response });
+    } else {
+      return res.status(400).json({ success: false, message: msg91Response.message });
+    }
+  } catch (error) {
+    console.error('OTP verify error:', error.response?.data || error.message);
+    return res.status(500).json({ success: false, message: 'OTP verification failed' });
+  }
+}
+
+export const resendOtp = async (req, res) => {
+  const { phoneNumber, retryType = 'text' } = req.query;
+
+  const mobile = `91${phoneNumber}`;
+  const authkey = process.env.MSG91_AUTH_KEY;
+
+  const url = `https://control.msg91.com/api/v5/otp/retry?authkey=${authkey}&retrytype=${retryType}&mobile=${mobile}`;
+
+  try {
+    const response = await axios.get(url);
+
+    res.status(200).json({ success: true, data: response.data });
+  } catch (error) {
+    console.error('MSG91 Resend OTP error:', error.response?.data || error.message);
+    res.status(500).json({ success: false, message: 'Failed to resend OTP' });
+  }
 };
 

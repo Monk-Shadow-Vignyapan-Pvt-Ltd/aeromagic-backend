@@ -1,6 +1,6 @@
 import express from "express";
 import {auth} from "../middleware/auth.js"
-import { addUser, login, tokenIsValid, getUser,getUsers,updateUser,deleteUser,} from "../controllers/auth.controller.js";
+import { addUser, login, tokenIsValid, getUser,getUsers,updateUser,deleteUser,sendOtp,verifyOtp,resendOtp} from "../controllers/auth.controller.js";
 import { globalSearch } from "../controllers/global_search.controller.js";
 import {maintenanceOnOff,getMaintenanceOnOff} from  "../controllers/maintenance.controller.js";
 
@@ -16,5 +16,8 @@ router.route("/deleteUser/:id").delete( deleteUser);
 router.route("/maintenanceOnOff").post( maintenanceOnOff);
 router.route("/getMaintenanceOnOff").get(getMaintenanceOnOff);
 router.route("/globalSearch").post( globalSearch);
+router.route("/sendOtp").post( sendOtp);
+router.route("/verifyOtp").post( verifyOtp);
+router.route("/resendOtp").post( resendOtp);
 
 export default router;

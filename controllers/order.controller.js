@@ -22,7 +22,7 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, shippingCharge,codCharge, finalTotal, giftPacking) => {
+const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount,prepaidDiscount, shippingCharge,codCharge, finalTotal, giftPacking) => {
   // Calculate GST information for each item
   const isGujarat = shippingAddress?.state === "Gujarat";
   let totalCGST = 0;
@@ -68,7 +68,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
 
     const itemTotal = item.price * item.quantity;
     const itemShareRatio = itemTotal / subtotal;
-    const shareCoupon = couponDiscount * itemShareRatio;
+    const shareCoupon = (couponDiscount + prepaidDiscount)* itemShareRatio;
     const shareShipping = shippingCharge * itemShareRatio;
     const adjustedItemTotal = itemTotal - shareCoupon + shareShipping;
     
@@ -322,15 +322,20 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td align="left" style="font-weight: 600;">Subtotal:</td>
-      <td align="right">₹${(subtotal + couponDiscount - shippingCharge - totalCGST - totalSGST - totalIGST - (giftPacking ? 100 : 0)).toFixed(2)}</td>
+      <td align="right">₹${(subtotal + couponDiscount + prepaidDiscount - shippingCharge - totalCGST - totalSGST - totalIGST - (giftPacking ? 100 : 0)).toFixed(2)}</td>
     </tr>
+    
+    ${(couponDiscount && couponDiscount > 0) ? `<tr>
+      <td align="left" style="font-weight: 600;">Coupon Discount:</td>
+      <td align="right">- ₹${couponDiscount.toFixed(2)}</td>
+    </tr>`: ''}
+    ${(prepaidDiscount && prepaidDiscount > 0) ? `<tr>
+      <td align="left" style="font-weight: 600;">Coupon Discount:</td>
+      <td align="right">- ₹${prepaidDiscount.toFixed(2)}</td>
+    </tr>` : ''}
     <tr>
       <td align="left" style="font-weight: 600;">Discount:</td>
       <td align="right">- ₹${totalDiscount.toFixed(2)}</td>
-    </tr>
-    <tr>
-      <td align="left" style="font-weight: 600;">Coupon Discount:</td>
-      <td align="right">- ₹${couponDiscount.toFixed(2)}</td>
     </tr>
     <tr>
       <td align="left" style="font-weight: 600;">Shipping:</td>
@@ -449,6 +454,7 @@ export const addOrder = async (req, res) => {
       status,
       shippingAddress,
       subtotal,
+      prepaidDiscount,
       totalDiscount,
       couponDiscount,
       shippingCharge,
@@ -498,6 +504,7 @@ export const addOrder = async (req, res) => {
       customerId: customer._id, // ✅ store reference
       shippingAddress,
       subtotal,
+      prepaidDiscount,
       totalDiscount,
       couponDiscount,
       shippingCharge,
@@ -521,6 +528,7 @@ export const addOrder = async (req, res) => {
         cartItems,
         subtotal,
         totalDiscount,
+        prepaidDiscount,
         couponDiscount,
         shippingCharge,
         codCharge,
@@ -748,12 +756,13 @@ export const getOrdersExcel = async (req, res) => {
       { header: "MRP", key: "mrp", width: 15 },
       { header: "SALE RATE", key: "saleRate", width: 15 },
       { header: "DISCOUNT AMOUNT", key: "discountAmount", width: 20 },
+      { header: "PREPAID DISCOUNT", key: "prepaidDiscount", width: 20 },
       { header: "QUANTITY", key: "qty", width: 10 },
       { header: "FREE QUANTITY", key: "freeQty", width: 15 },
       { header: "SHIPPING CHARGE", key: "shipping", width: 15 },
       { header: "COD CHARGE", key: "codCharge", width: 15 },
       { header: "SALE RATE W/GST", key: "saleRateWithGst", width: 20 },
-       { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
+      { header: "CUSTOMER CELL NO.", key: "phone", width: 20 },
       { header: "CUSTOMER NAME", key: "customerName", width: 25 },
       { header: "CASH Amount", key: "cashAmount", width: 20 },
       { header: "CREDIT AMOUNT", key: "creditAmount", width: 20 },
@@ -770,6 +779,7 @@ export const getOrdersExcel = async (req, res) => {
         paymentMode,
         customerId,
         couponDiscount,
+        prepaidDiscount,
         shippingCharge,
         codCharge,
         status,
@@ -832,11 +842,13 @@ for (const item of cartItems) {
 
   // Proportional distribution
   const itemShareRatio = finalTotalItem / totalCartFinal;
-  const shareCoupon = +(couponDiscount * itemShareRatio).toFixed(2);
+  const shareCoupon = +((couponDiscount) * itemShareRatio).toFixed(2);
+  const sharePrepaidDiscount = +(prepaidDiscount * itemShareRatio).toFixed(2);
+  const shareCODCharge = +(codCharge * itemShareRatio).toFixed(2);
   const shareShipping = +(shippingCharge * itemShareRatio).toFixed(2);
 
   // 🔻 Adjusted total after applying -coupon +shipping
-  const adjustedFinal = +(finalTotalItem - shareCoupon + shareShipping).toFixed(2);
+  const adjustedFinal = +(finalTotalItem - shareCoupon - sharePrepaidDiscount + shareCODCharge + shareShipping).toFixed(2);
 
   // GST %
   const totalGST = gstRate.cgst + gstRate.sgst + gstRate.igst;
@@ -867,10 +879,11 @@ for (const item of cartItems) {
     mrp:mrp,
     saleRate: baseUnit,
     discountAmount:shareCoupon,
+    prepaidDiscount: prepaidDiscount > 0 ? sharePrepaidDiscount : 0,
     qty,
     freeQty: baseUnit <= 0 ? 1 : 0,
     shipping:shareShipping,
-    codCharge:codCharge,
+    codCharge:codCharge > 0 ? shareCODCharge : 0,
     saleRateWithGst:adjustedFinal,
     phone:customerId.phoneNumber,
     customerName:customerId.fullname,
@@ -2508,7 +2521,7 @@ const cancelOrderMail = async (order) => {
               >
                 <span style="font-weight: 600">Discount:</span> ₹${cancelOrder.totalDiscount}
               </p>
-              <p
+              ${cancelOrder.couponDiscount && cancelOrder.couponDiscount > 0 ?`<p
                 style="
                   margin: 8px 0px;
                   font-size: 16px;
@@ -2520,7 +2533,20 @@ const cancelOrderMail = async (order) => {
                 "
               >
                 <span style="font-weight: 600">Coupon Discount:</span> ₹${cancelOrder.couponDiscount}
-              </p>
+              </p>`: ""}
+              ${cancelOrder.prepaidDiscount && cancelOrder.prepaidDiscount > 0 ?`<p
+                style="
+                  margin: 8px 0px;
+                  font-size: 16px;
+                  width: 100%;
+                  max-width: 180px;
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <span style="font-weight: 600">Prepaid Discount:</span> ₹${cancelOrder.prepaidDiscount}
+              </p>`: ""}
               <p
                 style="
                   margin: 8px 0px;
