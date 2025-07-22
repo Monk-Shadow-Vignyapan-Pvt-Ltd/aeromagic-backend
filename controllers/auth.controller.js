@@ -257,8 +257,7 @@ export const verifyOtp = async (req, res) => {
 }
 
 export const resendOtp = async (req, res) => {
-  const { phoneNumber, retryType = 'text' } = req.query;
-
+  const { phoneNumber, retryType = 'text' } = req.body;
   const mobile = `91${phoneNumber}`;
   const authkey = process.env.MSG91_AUTH_KEY;
 
