@@ -475,13 +475,13 @@ export const addOrder = async (req, res) => {
     const dateStart = moment().startOf('day').toDate();
     const dateEnd = moment().endOf('day').toDate();
 
-    const todayOrders = await Order.find({
-      createdAt: { $gte: dateStart, $lte: dateEnd },
-      orderId: { $regex: `^${prefix}-${formattedDate}-` }
-    });
+    // const todayOrders = await Order.find({
+    //   createdAt: { $gte: dateStart, $lte: dateEnd },
+    //   orderId: { $regex: `^${prefix}-${formattedDate}-` }
+    // });
 
-    const orderNumber = String(todayOrders.length + 1).padStart(4, '0');
-    const orderId = `${prefix}-${formattedDate}-${orderNumber}`;
+    // const orderNumber = String(todayOrders.length + 1).padStart(4, '0');
+    // const orderId = `${prefix}-${formattedDate}-${orderNumber}`;
 
     // 🔍 Step 1: Find or create customer
     let customer = await Customer.findOne({ phoneNumber: Number(shippingAddress.phone) });
@@ -491,8 +491,87 @@ export const addOrder = async (req, res) => {
         fullname: `${shippingAddress.first_name} ${shippingAddress.last_name}`,
         email: shippingAddress.email,
         phoneNumber: Number(shippingAddress.phone),
-        authType: "social"
+        authType: "local"
       });
+    }
+
+    let orderId = null;
+
+    try {
+      const shipeasePayload = {
+        ApiKey: process.env.SHIPEASE_API_KEY,
+        OrderDetails: [
+          {
+            PaymentType: orderType === 'COD' ? 'cod' : 'prepaid',
+            OrderType: "forward",
+            CustomerName: `${shippingAddress.first_name} ${shippingAddress.last_name}`,
+            OrderNumber: shipRocketOrderId,
+            Addresses: {
+              BilingAddress: {
+                AddressLine1: shippingAddress.line1 || '',
+                AddressLine2: shippingAddress.line2 || '',
+                City: shippingAddress.city,
+                State: shippingAddress.state,
+                Country: "India",
+                Pincode: shippingAddress.pincode,
+                ContactCode: "91",
+                Contact: shippingAddress.phone
+              },
+              ShippingAddress: {
+                AddressLine1: shippingAddress.line1 || '',
+                AddressLine2: shippingAddress.line2 || '',
+                City: shippingAddress.city,
+                State: shippingAddress.state,
+                Country: "India",
+                Pincode: shippingAddress.pincode,
+                ContactCode: "91",
+                Contact: shippingAddress.phone
+              },
+              PickupAddress: {
+                WarehouseName: "Aromagic",
+                ContactName: "Aman",
+                AddressLine1: "SUPER BELT, amreliwala shopping complex",
+                AddressLine2: "matawadi circle surat, SURAT",
+                City: "Surat",
+                State: "Gujrat",
+                Country: "India",
+                Pincode: "395006",
+                ContactCode: "91",
+                Contact: "7069494270"
+              }
+            },
+            Weight: "0.9",
+            Length: "11",
+            Breadth: "12",
+            Height: "13",
+            ProductDetails: cartItems.map(item => ({
+              Name: item.name,
+              SKU: item.id,
+              QTY:  item.quantity.toString(),
+              Amount: item.finalSellingPrice.toString()
+            })),
+            InvoiceAmount: finalTotal.toString(),
+            EwayBill: null,
+            ShippingCharge: shippingCharge.toString(),
+            CodCharge: codCharge.toString(),
+            Discount: totalDiscount.toString()
+          }
+        ]
+      };
+
+      const response = await axios.post(
+        'https://app.shipease.in/core-api/seller/api/create-order/',
+        shipeasePayload,
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+
+      const created = response.data?.[0];
+      if (created?.status && created?.order_id) {
+        orderId = created.order_id;
+      }
+
+    } catch (shipErr) {
+      console.error("❌ Failed to create Shipease order:", shipErr?.response?.data || shipErr.message);
     }
 
     // ✅ Step 2: Create order with customer._id
@@ -500,7 +579,7 @@ export const addOrder = async (req, res) => {
       orderType,
       cartItems,
       status,
-      orderId,
+      orderId:orderId,
       customerId: customer._id, // ✅ store reference
       shippingAddress,
       subtotal,
