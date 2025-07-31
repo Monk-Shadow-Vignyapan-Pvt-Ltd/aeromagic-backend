@@ -143,6 +143,7 @@ export const generateCheckoutToken = async (req, res) => {
             return {
                 variant_id: shortId + parseInt(variationIndex) + 1,
                 quantity: product.quantity,
+                
             };
         });
 
@@ -185,6 +186,9 @@ export const generateCheckoutToken = async (req, res) => {
         });
     }
 };
+
+// controllers/shiprocket.controller.js
+
 
 export const getShiprocketOrder = async (req, res) => {
     try {

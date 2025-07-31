@@ -184,6 +184,8 @@ export const getPaginationProducts = async (req, res) => {
           sku: `${plain.productName.toUpperCase().replace(/\s+/g, '-')}-${variation.value || index + 1}`,
           created_at: plain.createdAt,
           updated_at: plain.updatedAt,
+          
+          discount:variation.discount,
           taxable: true,
           grams: (variation.weight || plain.weight || 0),
           weight: variation.weight || plain.weight || 0,
@@ -203,6 +205,7 @@ export const getPaginationProducts = async (req, res) => {
             grams: (plain.weight || 0),
             weight: plain.weight || 0,
             weight_unit: "g",
+            discount:plain.discount,
             image: {
               src: imageUrl
             }
@@ -210,7 +213,12 @@ export const getPaginationProducts = async (req, res) => {
         ],
         image: {
           src: imageUrl
-        }
+        },
+        categoryId: plain.categoryId,
+        hasVariations:plain.hasVariations,
+        _id:plain._id,
+        productUrl:plain.productUrl,
+        discountType:plain.discountType,
       };
     });
 

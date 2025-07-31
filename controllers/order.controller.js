@@ -22,13 +22,13 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount,prepaidDiscount, shippingCharge,codCharge, finalTotal, giftPacking) => {
+const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItems, subtotal, totalDiscount, couponDiscount, prepaidDiscount, shippingCharge, codCharge, finalTotal, giftPacking) => {
   // Calculate GST information for each item
   const isGujarat = shippingAddress?.state === "Gujarat";
   let totalCGST = 0;
   let totalSGST = 0;
   let totalIGST = 0;
-  
+
   // Process each item to calculate GST
   const itemsWithGST = await Promise.all(cartItems.map(async (item) => {
     let categoryName = "N/A";
@@ -43,7 +43,7 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
 
     // Determine GST rate based on category and shipping state
     let gstRate = { cgst: 0, sgst: 0, igst: 0 };
-    
+
     switch (categoryName) {
       case "Perfume":
         gstRate = isGujarat ? { cgst: 9, sgst: 9, igst: 0 } : { cgst: 0, sgst: 0, igst: 18 };
@@ -67,21 +67,21 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
     }
 
     const itemTotal = item.price * item.quantity;
-    const itemShareRatio = itemTotal / subtotal;
-    const shareCoupon = (couponDiscount + prepaidDiscount)* itemShareRatio;
+    const itemShareRatio = (itemTotal) / subtotal;
+    const shareCoupon = (couponDiscount + prepaidDiscount) * itemShareRatio;
     const shareShipping = shippingCharge * itemShareRatio;
     const adjustedItemTotal = itemTotal - shareCoupon + shareShipping;
-    
+
     // Calculate GST amounts
     const cgstAmount = adjustedItemTotal * (gstRate.cgst / 100);
     const sgstAmount = adjustedItemTotal * (gstRate.sgst / 100);
     const igstAmount = adjustedItemTotal * (gstRate.igst / 100);
-    
+
     // Add to totals
     totalCGST += cgstAmount;
     totalSGST += sgstAmount;
     totalIGST += igstAmount;
-    
+
     return {
       ...item,
       gstRate,
@@ -308,21 +308,12 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
           style="margin-top: 16px;"
         >
           <tr>
-            <td>
-        <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px">
-          Shipping Information
-        </h3>
-        <p style="margin: 0">${shippingAddress.first_name} ${shippingAddress.last_name}</p>
-        <p style="margin: 0">${shippingAddress.line1}, ${shippingAddress.line2}</p>
-        <p style="margin: 0">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.pincode}</p>
-        <p style="margin: 0">India</p>
-        <p style="margin: 0">Phone: +91 ${shippingAddress.phone}</p>
-      </td>
+            
            <td align="right" style="vertical-align: top;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0">
     <tr>
       <td align="left" style="font-weight: 600;">Subtotal:</td>
-      <td align="right">₹${(subtotal + couponDiscount + prepaidDiscount - shippingCharge - totalCGST - totalSGST - totalIGST - (giftPacking ? 100 : 0)).toFixed(2)}</td>
+      <td align="right">₹${(subtotal - totalCGST - totalSGST - totalIGST - (giftPacking ? 100 : 0)).toFixed(2)}</td>
     </tr>
     
     ${(couponDiscount && couponDiscount > 0) ? `<tr>
@@ -330,19 +321,14 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       <td align="right">- ₹${couponDiscount.toFixed(2)}</td>
     </tr>`: ''}
     ${(prepaidDiscount && prepaidDiscount > 0) ? `<tr>
-      <td align="left" style="font-weight: 600;">Coupon Discount:</td>
+      <td align="left" style="font-weight: 600;">Prepaid Discount:</td>
       <td align="right">- ₹${prepaidDiscount.toFixed(2)}</td>
     </tr>` : ''}
-    <tr>
-      <td align="left" style="font-weight: 600;">Discount:</td>
-      <td align="right">- ₹${totalDiscount.toFixed(2)}</td>
-    </tr>
     <tr>
       <td align="left" style="font-weight: 600;">Shipping:</td>
       <td align="right">₹${shippingCharge.toFixed(2)}</td>
     </tr>
-    ${
-      isGujarat
+    ${isGujarat
         ? `
     <tr>
       <td align="left" style="font-weight: 600;">CGST:</td>
@@ -359,9 +345,8 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
       <td align="right">₹${totalIGST.toFixed(2)}</td>
     </tr>
     `
-    }
-    ${
-      giftPacking
+      }
+    ${giftPacking
         ? `
     <tr>
       <td align="left" style="font-weight: 600;">Gift Packing:</td>
@@ -369,16 +354,15 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
     </tr>
     `
         : ''
-    }
-     ${
-      (codCharge && codCharge > 0)
+      }
+     ${(codCharge && codCharge > 0)
         ? `
     <tr>
       <td align="left" style="font-weight: 600;">COD Charge:</td>
       <td align="right">₹${codCharge.toFixed(2)}</td>
     </tr>`
         : ''
-    }
+      }
     <tr>
       <td align="left" style="font-weight: 600;">Total:</td>
       <td align="right">₹${finalTotal.toFixed(2)}</td>
@@ -388,6 +372,19 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
 
           </tr>
         </table>
+      </td>
+    </tr>
+
+    <tr >
+    <td style="padding: 8px 0px;">
+        <h3 style="font-size: 18px; font-weight: 600; margin: 0px 0px 8px; padding-right: 8px !important; padding-left: 8px !important;">
+          Shipping Information
+        </h3>
+        <p style="margin: 0; padding-right: 8px !important; padding-left: 8px !important;">${shippingAddress.first_name} ${shippingAddress.last_name}</p>
+        <p style="margin: 0; padding-right: 8px !important; padding-left: 8px !important;">${shippingAddress.line1}, ${shippingAddress.line2}</p>
+        <p style="margin: 0; padding-right: 8px !important; padding-left: 8px !important;">${shippingAddress.city}, ${shippingAddress.state} - ${shippingAddress.pincode}</p>
+        <p style="margin: 0; padding-right: 8px !important; padding-left: 8px !important;">India</p>
+        <p style="margin: 0; padding-right: 8px !important; padding-left: 8px !important; margin-bottom: 8px !important;">Phone: +91 ${shippingAddress.phone}</p>
       </td>
     </tr>
   </table>
@@ -445,6 +442,212 @@ const sendOrderConfirmationEmail = async (to, orderId, shippingAddress, cartItem
   }
 };
 
+export const shiprocketWebhook = async (req, res) => {
+  try {
+    const data = req.body;
+
+    // Validate payload
+    if (!data.order_id || !Array.isArray(data.cart_data?.items)) {
+      return res.status(400).json({ message: "Invalid webhook data", success: false });
+    }
+
+    // Log the incoming order
+   // console.log("🚚 Received Shiprocket order:", data);
+    if (data.status === "SUCCESS") {
+
+      const productsResponse = await axios.get("https://api.aromagicperfume.com/api/v1/products/getPaginationProducts?limit=1000000");
+      const allProducts = productsResponse.data?.data?.products || [];
+
+      let enrichedCartItems = data.cart_data?.items.map(cartItem => {
+        // Match product by variant_id
+        const productMatch = allProducts.find(product => {
+          return product.variants.some(variant => variant.id.toString() === cartItem.variant_id.toString());
+        });
+
+
+        if (!productMatch) {
+          console.warn(`Product not found for variant_id: ${cartItem.variant_id}`);
+          return null;
+        }
+
+        let finalVariant = null;
+        let variationIndex = 0;
+
+        if (productMatch.hasVariations) {
+          finalVariant = productMatch.variants.find((variant, idx) => {
+            const isMatch = variant.id.toString() === cartItem.variant_id.toString();
+            if (isMatch) variationIndex = idx;
+            return isMatch;
+          });
+        } else {
+          finalVariant = productMatch.variants[0];
+        }
+
+        return {
+          id: productMatch.hasVariations ? `${productMatch._id}_${variationIndex}` : productMatch._id,
+          hasVariations: productMatch.hasVariations,
+          variationIndex: variationIndex,
+          categoryId: productMatch.categoryId,
+          name: productMatch.hasVariations ? finalVariant.title : productMatch.title,
+          price: parseFloat(finalVariant.price),
+          discount: parseFloat(finalVariant.discount), // Can be enriched if needed
+          finalSellingPrice: parseFloat(finalVariant.price),
+          discountType: productMatch.discountType,
+          productUrl: productMatch.productUrl,
+          quantity: cartItem.quantity
+        };
+      }).filter(Boolean); // Remove unmatched items
+
+
+
+      let customer = await Customer.findOne({ phoneNumber: Number(data.shipping_address.phone) });
+
+      if (!customer) {
+        customer = await Customer.create({
+          fullname: `${data.shipping_address.first_name} ${data.shipping_address.last_name}`,
+          email: data.shipping_address.email,
+          phoneNumber: Number(data.shipping_address.phone),
+          authType: "social"
+        });
+      }
+
+      let orderId = null;
+
+      try {
+        const shipeasePayload = {
+          ApiKey: process.env.SHIPEASE_API_KEY,
+          OrderDetails: [
+            {
+              PaymentType: data.payment_type === "CASH_ON_DELIVERY" ? 'cod' : 'prepaid',
+              OrderType: "forward",
+              CustomerName: `${data.shipping_address.first_name} ${data.shipping_address.last_name}`,
+              OrderNumber: data.order_id,
+              Addresses: {
+                BilingAddress: {
+                  AddressLine1: data.shipping_address.line1 || '',
+                  AddressLine2: data.shipping_address.line2 || '',
+                  City: data.shipping_address.city,
+                  State: data.shipping_address.state,
+                  Country: "India",
+                  Pincode: data.shipping_address.pincode,
+                  ContactCode: "91",
+                  Contact: data.shipping_address.phone
+                },
+                ShippingAddress: {
+                  AddressLine1: data.shipping_address.line1 || '',
+                  AddressLine2: data.shipping_address.line2 || '',
+                  City: data.shipping_address.city,
+                  State: data.shipping_address.state,
+                  Country: "India",
+                  Pincode: data.shipping_address.pincode,
+                  ContactCode: "91",
+                  Contact: data.shipping_address.phone
+                },
+                PickupAddress: {
+                  WarehouseName: "Aromagic",
+                  ContactName: "Aman",
+                  AddressLine1: "SUPER BELT, amreliwala shopping complex",
+                  AddressLine2: "matawadi circle surat, SURAT",
+                  City: "Surat",
+                  State: "Gujrat",
+                  Country: "India",
+                  Pincode: "395006",
+                  ContactCode: "91",
+                  Contact: "7069494270"
+                }
+              },
+              Weight: "0.9",
+              Length: "11",
+              Breadth: "12",
+              Height: "13",
+              ProductDetails: enrichedCartItems.map(item => ({
+                Name: item.name,
+                SKU: item.id,
+                QTY: item.quantity.toString(),
+                Amount: item.finalSellingPrice.toString()
+              })),
+              InvoiceAmount: data.total_amount_payable.toString(),
+              EwayBill: null,
+              ShippingCharge: data.shipping_charges.toString(),
+              CodCharge: data.cod_charges.toString(),
+              Discount: data.total_discount.toString()
+            }
+          ]
+        };
+
+        const response = await axios.post(
+          'https://app.shipease.in/core-api/seller/api/create-order/',
+          shipeasePayload,
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        const created = response.data?.[0];
+        if (created?.status && created?.order_id) {
+          orderId = created.order_id;
+        }
+
+      } catch (shipErr) {
+        console.error("❌ Failed to create Shipease order:", shipErr?.response?.data || shipErr.message);
+      }
+
+      const subtotal = data.cart_data?.items.reduce((sum, item) => {
+        return sum + (item.price * item.quantity);
+      }, 0);
+
+      // ✅ Step 2: Create order with customer._id
+      const order = new Order({
+        orderType: data.payment_type === "CASH_ON_DELIVERY" ? "COD" : "prepaid",
+        cartItems: enrichedCartItems,
+        status: "Pending",
+        orderId: orderId,
+        customerId: customer._id, // ✅ store reference
+        shippingAddress: data.shipping_address,
+        subtotal: subtotal,
+        prepaidDiscount: data.prepaid_discount,
+        totalDiscount: data.total_discount,
+        couponDiscount: data.coupon_discount,
+        shippingCharge: data.shipping_charges,
+        codCharge: data.cod_charges,
+        finalTotal: data.total_amount_payable,
+        shipRocketOrderId: data.order_id
+      });
+
+      await order.save();
+
+      // 📧 Step 3: Send email if email exists
+      if (customer?.email) {
+        await sendOrderConfirmationEmail(
+          customer.email,
+          orderId,
+          data.shipping_address,
+          enrichedCartItems, // ⬅️ also make sure you're using the enriched version here, not raw `cart_data.items`
+          subtotal,
+          data.total_discount,
+          data.coupon_discount,
+          data.prepaid_discount,
+          data.shipping_charges,
+          data.cod_charges,
+          data.total_amount_payable,
+          false
+        );
+
+      }
+
+
+    }
+
+
+    return res.status(200).json({ message: "Webhook received", success: true });
+  } catch (error) {
+    console.error("❌ Webhook error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while handling webhook",
+      error: error.message
+    });
+  }
+};
+
 // Add a new order
 export const addOrder = async (req, res) => {
   try {
@@ -491,7 +694,7 @@ export const addOrder = async (req, res) => {
         fullname: `${shippingAddress.first_name} ${shippingAddress.last_name}`,
         email: shippingAddress.email,
         phoneNumber: Number(shippingAddress.phone),
-        authType: "local"
+        authType: "social"
       });
     }
 
@@ -547,7 +750,7 @@ export const addOrder = async (req, res) => {
             ProductDetails: cartItems.map(item => ({
               Name: item.name,
               SKU: item.id,
-              QTY:  item.quantity.toString(),
+              QTY: item.quantity.toString(),
               Amount: item.finalSellingPrice.toString()
             })),
             InvoiceAmount: finalTotal.toString(),
@@ -579,7 +782,7 @@ export const addOrder = async (req, res) => {
       orderType,
       cartItems,
       status,
-      orderId:orderId,
+      orderId: orderId,
       customerId: customer._id, // ✅ store reference
       shippingAddress,
       subtotal,
@@ -727,7 +930,7 @@ export const getOrders = async (req, res) => {
           // if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned"){
           //       await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
           // }
-            
+
         }
 
         return {
@@ -802,16 +1005,16 @@ export const getOrdersExcel = async (req, res) => {
 
     const filter = {};
     if (startDate && endDate) {
-  const istOffsetMs = 5.5 * 60 * 60 * 1000;
+      const istOffsetMs = 5.5 * 60 * 60 * 1000;
 
-  const utcStart = new Date(new Date(startDate).getTime() - istOffsetMs);
-  const utcEnd = new Date(new Date(endDate).setHours(23, 59, 59, 999) - istOffsetMs);
+      const utcStart = new Date(new Date(startDate).getTime() - istOffsetMs);
+      const utcEnd = new Date(new Date(endDate).setHours(23, 59, 59, 999) - istOffsetMs);
 
-  filter.createdAt = {
-    $gte: utcStart,
-    $lte: utcEnd,
-  };
-}
+      filter.createdAt = {
+        $gte: utcStart,
+        $lte: utcEnd,
+      };
+    }
 
     const orders = await Order.find(filter)
       .populate("customerId")
@@ -871,8 +1074,8 @@ export const getOrdersExcel = async (req, res) => {
 
       const totalCartFinal = cartItems.reduce((sum, item) => sum + (item.finalSellingPrice * item.quantity), 0);
 
-for (const item of cartItems) {
-   let categoryName = "N/A";
+      for (const item of cartItems) {
+        let categoryName = "N/A";
         try {
           if (item?.categoryId) {
             const category = await Category.findById(item.categoryId).select("categoryName");
@@ -916,62 +1119,62 @@ for (const item of cartItems) {
             break;
         }
 
-  const qty = item.quantity || 1;
-  const finalTotalItem = item.finalSellingPrice * qty;
+        const qty = item.quantity || 1;
+        const finalTotalItem = item.finalSellingPrice * qty;
 
-  // Proportional distribution
-  const itemShareRatio = finalTotalItem / totalCartFinal;
-  const shareCoupon = +((couponDiscount) * itemShareRatio).toFixed(2);
-  const sharePrepaidDiscount = +(prepaidDiscount * itemShareRatio).toFixed(2);
-  const shareCODCharge = +(codCharge * itemShareRatio).toFixed(2);
-  const shareShipping = +(shippingCharge * itemShareRatio).toFixed(2);
+        // Proportional distribution
+        const itemShareRatio = finalTotalItem / totalCartFinal;
+        const shareCoupon = +((couponDiscount) * itemShareRatio).toFixed(2);
+        const sharePrepaidDiscount = +(prepaidDiscount * itemShareRatio).toFixed(2);
+        const shareCODCharge = +(codCharge * itemShareRatio).toFixed(2);
+        const shareShipping = +(shippingCharge * itemShareRatio).toFixed(2);
 
-  // 🔻 Adjusted total after applying -coupon +shipping
-  const adjustedFinal = +(finalTotalItem - shareCoupon - sharePrepaidDiscount + shareCODCharge + shareShipping).toFixed(2);
+        // 🔻 Adjusted total after applying -coupon +shipping
+        const adjustedFinal = +(finalTotalItem - shareCoupon - sharePrepaidDiscount + shareCODCharge + shareShipping).toFixed(2);
 
-  // GST %
-  const totalGST = gstRate.cgst + gstRate.sgst + gstRate.igst;
+        // GST %
+        const totalGST = gstRate.cgst + gstRate.sgst + gstRate.igst;
 
-  // 🔁 Base price reverse from GST
-  const baseTotal = +(adjustedFinal / (1 + totalGST / 100)).toFixed(2);
-  const baseUnit = +(baseTotal / qty).toFixed(2);
+        // 🔁 Base price reverse from GST
+        const baseTotal = +(adjustedFinal / (1 + totalGST / 100)).toFixed(2);
+        const baseUnit = +(baseTotal / qty).toFixed(2);
 
-  // 🎯 Reverse discount from base
-  const discount = item.discount || 0;
-  const discountType = item.discountType || "Flat Discount";
+        // 🎯 Reverse discount from base
+        const discount = item.discount || 0;
+        const discountType = item.discountType || "Flat Discount";
 
-  let priceBeforeDiscount = 0;
+        let priceBeforeDiscount = 0;
 
 
-  worksheet.addRow({
-    createdAt: invoiceDate,
-    orderId,
-    barcode:barcode,
-    status:status,
-    category: categoryName,
-    hsn,
-    cgst: gstRate.cgst,
-    sgst: gstRate.sgst,
-    igst: gstRate.igst,
-    brandName: "Aromagic",
-    productName: item.name,
-    mrp:mrp,
-    saleRate: baseUnit,
-    discountAmount:shareCoupon,
-    prepaidDiscount: prepaidDiscount > 0 ? sharePrepaidDiscount : 0,
-    qty,
-    freeQty: baseUnit <= 0 ? 1 : 0,
-    shipping:shareShipping,
-    codCharge:codCharge > 0 ? shareCODCharge : 0,
-    saleRateWithGst:adjustedFinal,
-    phone:customerId.phoneNumber,
-    customerName:customerId.fullname,
-    cashAmount: orderType === "COD" ? 0 : adjustedFinal,
-   creditAmount: orderType === "COD" ? adjustedFinal : 0
+        worksheet.addRow({
+          createdAt: invoiceDate,
+          orderId,
+          barcode: barcode,
+          status: status,
+          category: categoryName,
+          hsn,
+          cgst: gstRate.cgst,
+          sgst: gstRate.sgst,
+          igst: gstRate.igst,
+          brandName: "Aromagic",
+          productName: item.name,
+          mrp: mrp,
+          saleRate: baseUnit,
+          discountAmount: shareCoupon,
+          prepaidDiscount: prepaidDiscount > 0 ? sharePrepaidDiscount : 0,
+          qty,
+          freeQty: baseUnit <= 0 ? 1 : 0,
+          shipping: shareShipping,
+          codCharge: codCharge > 0 ? shareCODCharge : 0,
+          saleRateWithGst: adjustedFinal,
+          phone: customerId.phoneNumber,
+          customerName: customerId.fullname,
+          cashAmount: orderType === "COD" ? 0 : adjustedFinal,
+          creditAmount: orderType === "COD" ? adjustedFinal : 0
 
-  });
+        });
 
-}
+      }
     }
 
     res.setHeader(
@@ -999,7 +1202,7 @@ for (const item of cartItems) {
 export const getOrderById = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findById(orderId) .populate("customerId").select('-returnItems.returnVideo');
+    const order = await Order.findById(orderId).populate("customerId").select('-returnItems.returnVideo');
     if (!order) {
       return res.status(404).json({ message: "Order not found", success: false });
     }
@@ -1046,9 +1249,9 @@ export const getOrderById = async (req, res) => {
         const statusCode = trackResponse.data.status_code;
         newStatus =
           statusCode === "2" ? "Shipped" :
-          statusCode === "3" ? "Delivered" :
-          statusCode === "4" || statusCode === "5" ? "Returned" :
-          statusCode === "6" ? "Cancelled" : "Processing";
+            statusCode === "3" ? "Delivered" :
+              statusCode === "4" || statusCode === "5" ? "Returned" :
+                statusCode === "6" ? "Cancelled" : "Processing";
 
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
@@ -1088,7 +1291,48 @@ export const getOrderById = async (req, res) => {
       trackingInfo,
       cartItems: updatedCartItems,
     };
-    res.status(200).json({ order:enrichedOrder, success: true });
+    res.status(200).json({ order: enrichedOrder, success: true });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ message: 'Failed to fetch order', success: false });
+  }
+};
+
+export const getOrderByShiprocketId = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const order = await Order.findOne({ shipRocketOrderId: orderId }).populate("customerId").select('-returnItems.returnVideo');
+    if (!order) {
+      return res.status(404).json({ message: "Order not found", success: false });
+    }
+
+    const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+      try {
+        let cleanProductId = item.id;
+        let variationIndex = 0;
+        if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+          cleanProductId = item.id.split("_")[0];
+          variationIndex = item.id.split("_")[1];
+        }
+
+        const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices");
+        return {
+          ...item,
+          img: product?.hasVariations && product.variationPrices[variationIndex]?.images?.[0]
+            ? product.variationPrices[variationIndex].images[0]
+            : product?.productImage || null,
+        };
+      } catch (err) {
+        console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+        return item;
+      }
+    }));
+
+    const enrichedOrder = {
+      ...order.toObject(),
+      cartItems: updatedCartItems,
+    };
+    res.status(200).json({ order: enrichedOrder, success: true });
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ message: 'Failed to fetch order', success: false });
@@ -1260,9 +1504,9 @@ export const getLatestOrderByCustomerId = async (req, res) => {
         const statusCode = trackResponse.data.status_code;
         newStatus =
           statusCode === "2" ? "Shipped" :
-          statusCode === "3" ? "Delivered" :
-          statusCode === "4" || statusCode === "5" ? "Returned" :
-          statusCode === "6" ? "Cancelled" : "Processing";
+            statusCode === "3" ? "Delivered" :
+              statusCode === "4" || statusCode === "5" ? "Returned" :
+                statusCode === "6" ? "Cancelled" : "Processing";
 
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
@@ -1327,10 +1571,10 @@ export const updateOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Order not found", success: false });
     }
-    
-    if(returnItems.approvalStatus ==="Pending"){
+
+    if (returnItems.approvalStatus === "Pending") {
       await returnRequestMail(order);
-    }else if (returnItems.approvalStatus ==="Approved"){
+    } else if (returnItems.approvalStatus === "Approved") {
       await returnApproveMail(order);
     }
 
@@ -1364,13 +1608,59 @@ export const cancelOrder = async (req, res) => {
     if (!order) {
       return res.status(404).json({ message: "Order not found", success: false });
     }
-     await cancelOrderMail(order);
+    await cancelOrderMail(order);
     res.status(200).json({ order, success: true });
   } catch (error) {
     console.error('Error cancel order:', error);
     res.status(500).json({ message: 'Failed to cancel order', success: false });
   }
 };
+
+export const cancelShipment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const shipeasePayload = {
+      ApiKey: process.env.SHIPEASE_API_KEY,
+      OrderID: orderId,
+    };
+
+    // Step 1: Track order
+    const trackResponse = await axios.post(
+      'https://app.shipease.in/core-api/seller/api/track-order-by-id/',
+      shipeasePayload,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    const currentStatus = trackResponse.data.CurrentStatus;
+
+    // Step 2: Check status
+    if (currentStatus !== "Pending") {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel order. Current status is "${currentStatus}". Only 'Pending' orders can be cancelled.`,
+      });
+    }
+
+    // Step 3: Cancel shipment
+    const response = await axios.post(
+      'https://app.shipease.in/core-api/seller/api/order-cancel/',
+      shipeasePayload,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    // Step 4: Optionally update order and send mail
+    // await Order.findByIdAndUpdate(orderId, { status: "Cancelled" });
+    // await cancelOrderMail();
+
+    return res.status(200).json({ data: response.data, success: true });
+
+  } catch (error) {
+    console.error('Error canceling shipment:', error?.response?.data || error);
+    res.status(500).json({ message: 'Failed to cancel shipment', success: false });
+  }
+};
+
 
 // Optional: Get all distinct statuses
 export const getOrderStatuses = async (req, res) => {
@@ -1913,8 +2203,8 @@ export const updateOrderStatusesAndSendEmails = async () => {
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
 
-          if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned"){
-                await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
+          if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned") {
+            await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
           }
 
           console.log(`Status updated and email sent for order ${order.orderId}`);
@@ -1935,12 +2225,12 @@ cron.schedule("0 21 * * *", () => {
 });
 
 const returnRequestMail = async (order) => {
-  const returnOrder = await Order.findOne({_id :order._id})
-      .select('-returnItems.returnVideo')
-      .populate("customerId");
+  const returnOrder = await Order.findOne({ _id: order._id })
+    .select('-returnItems.returnVideo')
+    .populate("customerId");
 
 
-       const htmlContent = `
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -2091,14 +2381,14 @@ const returnRequestMail = async (order) => {
                 </p>
                 <p style="margin: 8px 0px 0px">
                   <strong>Requested On:</strong>${new Date(returnOrder.updatedAt).toLocaleString('en-IN', {
-                                                              timeZone: 'Asia/Kolkata', // Indian Standard Time
-                                                              day: 'numeric',
-                                                              month: 'short',
-                                                              year: 'numeric',
-                                                              hour: 'numeric',
-                                                              minute: '2-digit',
-                                                              hour12: true
-                                                            })}
+    timeZone: 'Asia/Kolkata', // Indian Standard Time
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })}
                 </p>
               </td>
             </tr>
@@ -2160,31 +2450,31 @@ const returnRequestMail = async (order) => {
 </body>
 </html>
 `;
-    const mailOptions = {
-        from: process.env.SMTP_EMAIL,
-        to : returnOrder.customerId.email,
-        cc:process.env.CC_EMAIL,
-        subject: `Return / Replacement Request Received For ${returnOrder.orderId}!`,
-        html: htmlContent,
-    };
+  const mailOptions = {
+    from: process.env.SMTP_EMAIL,
+    to: returnOrder.customerId.email,
+    cc: process.env.CC_EMAIL,
+    subject: `Return / Replacement Request Received For ${returnOrder.orderId}!`,
+    html: htmlContent,
+  };
 
-    //return transporter.sendMail(mailOptions);
-     try {
-        await transporter.sendMail(mailOptions);
-        console.log('Return/Exchange Request email sent successfully');
-    } catch (error) {
-        console.error('Error sending email:', error);
-    }
-  
+  //return transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Return/Exchange Request email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+
 }
 
 const returnApproveMail = async (order) => {
-  const returnOrder = await Order.findOne({_id :order._id})
-      .select('-returnItems.returnVideo')
-      .populate("customerId");
+  const returnOrder = await Order.findOne({ _id: order._id })
+    .select('-returnItems.returnVideo')
+    .populate("customerId");
 
 
-       const htmlContent = `
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -2358,29 +2648,29 @@ const returnApproveMail = async (order) => {
 </body>
 </html>
 `;
-    const mailOptions = {
-        from: process.env.SMTP_EMAIL,
-        to : returnOrder.customerId.email,
-        cc:process.env.CC_EMAIL,
-        subject: `Return / Replacement Request Approved For ${returnOrder.orderId}!`,
-        html: htmlContent,
-    };
+  const mailOptions = {
+    from: process.env.SMTP_EMAIL,
+    to: returnOrder.customerId.email,
+    cc: process.env.CC_EMAIL,
+    subject: `Return / Replacement Request Approved For ${returnOrder.orderId}!`,
+    html: htmlContent,
+  };
 
-    //return transporter.sendMail(mailOptions);
-     try {
-        await transporter.sendMail(mailOptions);
-        console.log('Return/Exchange Approve email sent successfully');
-    } catch (error) {
-        console.error('Error sending email:', error);
-    }
-  
+  //return transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Return/Exchange Approve email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+
 }
 
 const cancelOrderMail = async (order) => {
-  const cancelOrder = await Order.findOne({_id :order._id})
-      .select('-returnItems')
-      .populate("customerId");
-       const htmlContent = `
+  const cancelOrder = await Order.findOne({ _id: order._id })
+    .select('-returnItems')
+    .populate("customerId");
+  const htmlContent = `
 <!DOCTYPE html>
 <html>
 <head>
@@ -2541,8 +2831,8 @@ const cancelOrderMail = async (order) => {
           </thead>
           <tbody>
            ${cancelOrder.cartItems
-        .map(
-          (item) => `
+      .map(
+        (item) => `
 <tr>
   <td
     style="padding: 8px 0px; border-bottom: 1px solid rgb(229, 231, 235);"
@@ -2561,8 +2851,8 @@ const cancelOrderMail = async (order) => {
     ₹${item.price * item.quantity}
   </td>
 </tr>`
-        )
-        .join('')}
+      )
+      .join('')}
           </tbody>
         </table>
         <table
@@ -2600,7 +2890,7 @@ const cancelOrderMail = async (order) => {
               >
                 <span style="font-weight: 600">Discount:</span> ₹${cancelOrder.totalDiscount}
               </p>
-              ${cancelOrder.couponDiscount && cancelOrder.couponDiscount > 0 ?`<p
+              ${cancelOrder.couponDiscount && cancelOrder.couponDiscount > 0 ? `<p
                 style="
                   margin: 8px 0px;
                   font-size: 16px;
@@ -2613,7 +2903,7 @@ const cancelOrderMail = async (order) => {
               >
                 <span style="font-weight: 600">Coupon Discount:</span> ₹${cancelOrder.couponDiscount}
               </p>`: ""}
-              ${cancelOrder.prepaidDiscount && cancelOrder.prepaidDiscount > 0 ?`<p
+              ${cancelOrder.prepaidDiscount && cancelOrder.prepaidDiscount > 0 ? `<p
                 style="
                   margin: 8px 0px;
                   font-size: 16px;
@@ -2737,22 +3027,22 @@ const cancelOrderMail = async (order) => {
 </body>
 </html>
 `;
-    const mailOptions = {
-        from: process.env.SMTP_EMAIL,
-        to : cancelOrder.customerId.email,
-        cc:process.env.CC_EMAIL,
-        subject: `Your Order ${cancelOrder.orderId} has been Cancelled!`,
-        html: htmlContent,
-    };
+  const mailOptions = {
+    from: process.env.SMTP_EMAIL,
+    to: cancelOrder.customerId.email,
+    cc: process.env.CC_EMAIL,
+    subject: `Your Order ${cancelOrder.orderId} has been Cancelled!`,
+    html: htmlContent,
+  };
 
-    //return transporter.sendMail(mailOptions);
-     try {
-        await transporter.sendMail(mailOptions);
-        console.log('Return/Exchange Approve email sent successfully');
-    } catch (error) {
-        console.error('Error sending email:', error);
-    }
-  
+  //return transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log('Return/Exchange Approve email sent successfully');
+  } catch (error) {
+    console.error('Error sending email:', error);
+  }
+
 }
 
 // Update only the shipping address of an order
