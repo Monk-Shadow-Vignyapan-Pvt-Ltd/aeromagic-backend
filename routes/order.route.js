@@ -1,7 +1,7 @@
 import express from "express";
 import {shiprocketWebhook, addOrder, getOrders,getOrdersExcel, getOrderById,getOrderByShiprocketId,
     getOrdersByCustomerId,getLatestOrderByCustomerId, deleteOrder,cancelOrder, 
-    cancelShipment,updateOrder,getOrderStatuses,getReturnOrders,updateOrderShippingAddress} from "../controllers/order.controller.js";
+    cancelShipment,trackShipment,updateOrder,getOrderStatuses,getReturnOrders,updateOrderShippingAddress} from "../controllers/order.controller.js";
 import isAuthenticated from "../auth/isAuthenticated.js";
 import { singleUpload } from "../middleware/multer.js";
 
@@ -19,6 +19,7 @@ router.route("/updateOrder/:id").post( updateOrder);
 router.route("/deleteOrder/:id").delete(deleteOrder);
 router.route("/cancelOrder/:id").post(cancelOrder);
 router.route("/cancelShipment").post(cancelShipment);
+router.route("/trackShipment").post(trackShipment);
 router.route("/getOrderStatuses").get( getOrderStatuses);
 router.route("/getReturnOrders").get( getReturnOrders);
 router.route("/updateOrderShippingAddress/:id").post( updateOrderShippingAddress);

@@ -1661,6 +1661,30 @@ export const cancelShipment = async (req, res) => {
   }
 };
 
+export const trackShipment = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const shipeasePayload = {
+      ApiKey: process.env.SHIPEASE_API_KEY,
+      OrderID: orderId,
+    };
+
+    // Step 1: Track order
+    const trackResponse = await axios.post(
+      'https://app.shipease.in/core-api/seller/api/track-order-by-id/',
+      shipeasePayload,
+      { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    return res.status(200).json({ data: trackResponse.data, success: true });
+
+  } catch (error) {
+    console.error('Error track shipment:', error?.response?.data || error);
+    res.status(500).json({ message: 'Failed to track shipment', success: false });
+  }
+};
+
 
 // Optional: Get all distinct statuses
 export const getOrderStatuses = async (req, res) => {
