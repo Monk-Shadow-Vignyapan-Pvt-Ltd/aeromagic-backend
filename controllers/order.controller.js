@@ -872,110 +872,159 @@ export const getOrders = async (req, res) => {
       .limit(parseInt(limit));
 
     // Login to Selloship once
-    const loginForm = new FormData();
-    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
-    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+    // const loginForm = new FormData();
+    // loginForm.append("email", process.env.SELLOSHIP_EMAIL);
+    // loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
 
-    const loginResponse = await axios.post(
-      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
-      loginForm,
-      {
-        headers: {
-          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
-          ...loginForm.getHeaders(),
-        },
-      }
-    );
+    // const loginResponse = await axios.post(
+    //   'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
+    //   loginForm,
+    //   {
+    //     headers: {
+    //       Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
+    //       ...loginForm.getHeaders(),
+    //     },
+    //   }
+    // );
 
-    if (loginResponse.data.success !== "1") {
-      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
-    }
+    // if (loginResponse.data.success !== "1") {
+    //   return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+    // }
 
-    // Enrich orders with Selloship tracking info
-    const enrichedOrders = await Promise.all(orders.map(async (order) => {
-      if (!order.selloShipAWB) {
-        return { ...order.toObject(), trackingInfo: null };
-      }
+    // // Enrich orders with Selloship tracking info
+    // const enrichedOrders = await Promise.all(orders.map(async (order) => {
+    //   if (!order.selloShipAWB) {
+    //     return { ...order.toObject(), trackingInfo: null };
+    //   }
 
-      const trackForm = new FormData();
-      trackForm.append("vendor_id", loginResponse.data.vendor_id);
-      trackForm.append("device_from", loginResponse.data.device_from);
-      trackForm.append("tracking_id", order.selloShipAWB);
+    //   const trackForm = new FormData();
+    //   trackForm.append("vendor_id", loginResponse.data.vendor_id);
+    //   trackForm.append("device_from", loginResponse.data.device_from);
+    //   trackForm.append("tracking_id", order.selloShipAWB);
 
-      try {
-        const trackResponse = await axios.post(
-          'https://selloship.com/api/lock_actvs/tracking_detail',
-          trackForm,
-          {
-            headers: {
-              Authorization: loginResponse.data.access_token,
-              ...trackForm.getHeaders(),
-            },
-          }
-        );
+    //   try {
+    //     const trackResponse = await axios.post(
+    //       'https://selloship.com/api/lock_actvs/tracking_detail',
+    //       trackForm,
+    //       {
+    //         headers: {
+    //           Authorization: loginResponse.data.access_token,
+    //           ...trackForm.getHeaders(),
+    //         },
+    //       }
+    //     );
 
-        const statusCode = trackResponse.data.status_code;
+    //     const statusCode = trackResponse.data.status_code;
 
-        // Determine new status
+    //     // Determine new status
+    //     const newStatus =
+    //       statusCode === "2" ? "Shipped" :
+    //         statusCode === "3" ? "Delivered" :
+    //           statusCode === "4" || statusCode === "5" ? "Returned" :
+    //             statusCode === "6" ? "Cancelled" :
+    //               "Processing";
+
+    //     // Update the order in the database if status changed
+    //     if (order.status !== newStatus) {
+    //       await Order.findByIdAndUpdate(order._id, { status: newStatus });
+    //       // if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned"){
+    //       //       await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
+    //       // }
+
+    //     }
+
+    //     return {
+    //       ...order.toObject(),
+    //       trackingInfo: trackResponse.data,
+    //       status: newStatus,
+    //     };
+
+    //   } catch (err) {
+    //     console.error(`Tracking failed for order ${order._id}:`, err.message);
+    //     return {
+    //       ...order.toObject(),
+    //       trackingInfo: null,
+    //     };
+    //   }
+    // }));
+
+
+    // // Filter by customer name (if search query is given)
+    // // const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
+    // //   const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
+    // //     try {
+    // //       let cleanProductId = item.id;
+    // //       let variationIndex = 0;
+    // //       if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
+    // //         cleanProductId = item.id.split("_")[0];
+    // //         variationIndex = item.id.split("_")[1];
+    // //       }
+
+    // //       const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
+    // //       return {
+    // //         ...item,
+    // //         img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null, // fallback if img is not found
+    // //       };
+    // //     } catch (err) {
+    // //       console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
+    // //       return item; // return item as-is if fetch fails
+    // //     }
+    // //   }));
+
+    // //   return {
+    // //     ...order,
+    // //     cartItems: updatedCartItems,
+    // //   };
+    // // }));
+  const enrichedOrders = await Promise.all(
+  orders.map(async (order) => {
+    try {
+      const shipeasePayload = {
+        ApiKey: process.env.SHIPEASE_API_KEY,
+        OrderID: order.orderId,
+      };
+
+      const trackResponse = await axios.post(
+        "https://app.shipease.in/core-api/seller/api/track-order-by-id/",
+        shipeasePayload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (trackResponse.data?.success) {
+        const statusCode = (trackResponse.data.StatusCode || "").toLowerCase();
+
         const newStatus =
-          statusCode === "2" ? "Shipped" :
-            statusCode === "3" ? "Delivered" :
-              statusCode === "4" || statusCode === "5" ? "Returned" :
-                statusCode === "6" ? "Cancelled" :
-                  "Processing";
+          statusCode === "in_transit"
+            ? "Shipped"
+            : statusCode === "delivered"
+            ? "Delivered"
+            : statusCode === "ndr"
+            ? "Returned"
+            : statusCode === "cancelled"
+            ? "Cancelled"
+            : "Processing";
 
-        // Update the order in the database if status changed
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
-          // if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned"){
-          //       await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
-          // }
-
         }
 
         return {
           ...order.toObject(),
-          trackingInfo: trackResponse.data,
           status: newStatus,
         };
-
-      } catch (err) {
-        console.error(`Tracking failed for order ${order._id}:`, err.message);
-        return {
-          ...order.toObject(),
-          trackingInfo: null,
-        };
+      } else {
+        return order.toObject();
       }
-    }));
+    } catch (err) {
+      console.error(
+        `Shipease tracking failed for order ${order.orderId}:`,
+        err.message
+      );
+      return order.toObject();
+    }
+  })
+);
 
-
-    // Filter by customer name (if search query is given)
-    // const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
-    //   const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
-    //     try {
-    //       let cleanProductId = item.id;
-    //       let variationIndex = 0;
-    //       if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
-    //         cleanProductId = item.id.split("_")[0];
-    //         variationIndex = item.id.split("_")[1];
-    //       }
-
-    //       const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices"); // or item._id if it's stored directly
-    //       return {
-    //         ...item,
-    //         img: product.hasVariations && product.variationPrices[variationIndex].images.length > 0 ? product.variationPrices[variationIndex].images[0] : product?.productImage || null, // fallback if img is not found
-    //       };
-    //     } catch (err) {
-    //       console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
-    //       return item; // return item as-is if fetch fails
-    //     }
-    //   }));
-
-    //   return {
-    //     ...order,
-    //     cartItems: updatedCartItems,
-    //   };
-    // }));
 
     let finalOrders = enrichedOrders;
     if (search && search.trim() !== "") {
@@ -1202,101 +1251,113 @@ export const getOrdersExcel = async (req, res) => {
 export const getOrderById = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const order = await Order.findById(orderId).populate("customerId").select('-returnItems.returnVideo');
+    const order = await Order.findById(orderId)
+      .populate("customerId")
+      .select("-returnItems.returnVideo");
+
     if (!order) {
-      return res.status(404).json({ message: "Order not found", success: false });
-    }
-    const loginForm = new FormData();
-    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
-    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
-
-    const loginResponse = await axios.post(
-      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
-      loginForm,
-      {
-        headers: {
-          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
-          ...loginForm.getHeaders(),
-        },
-      }
-    );
-
-    if (loginResponse.data.success !== "1") {
-      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
+      return res
+        .status(404)
+        .json({ message: "Order not found", success: false });
     }
 
-    let trackingInfo = null;
     let newStatus = order.status;
+    let trackingInfo = null;
 
-    if (order.selloShipAWB) {
-      const trackForm = new FormData();
-      trackForm.append("vendor_id", loginResponse.data.vendor_id);
-      trackForm.append("device_from", loginResponse.data.device_from);
-      trackForm.append("tracking_id", order.selloShipAWB);
+    // Try tracking with Shipease
+    try {
+      const shipeasePayload = {
+        ApiKey: process.env.SHIPEASE_API_KEY,
+        OrderID: order.orderId,
+      };
 
-      try {
-        const trackResponse = await axios.post(
-          'https://selloship.com/api/lock_actvs/tracking_detail',
-          trackForm,
-          {
-            headers: {
-              Authorization: loginResponse.data.access_token,
-              ...trackForm.getHeaders(),
-            },
-          }
-        );
+      const trackResponse = await axios.post(
+        "https://app.shipease.in/core-api/seller/api/track-order-by-id/",
+        shipeasePayload,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-        const statusCode = trackResponse.data.status_code;
+      if (trackResponse.data?.StatusCode) {
+        trackingInfo = trackResponse.data;
+        const statusCode = (trackResponse.data.StatusCode || "").toLowerCase();
+
         newStatus =
-          statusCode === "2" ? "Shipped" :
-            statusCode === "3" ? "Delivered" :
-              statusCode === "4" || statusCode === "5" ? "Returned" :
-                statusCode === "6" ? "Cancelled" : "Processing";
+          statusCode === "in_transit"
+            ? "Shipped"
+            : statusCode === "delivered"
+            ? "Delivered"
+            : statusCode === "ndr"
+            ? "Returned"
+            : statusCode === "cancelled"
+            ? "Cancelled"
+            : "Processing";
 
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
         }
-
-        trackingInfo = trackResponse.data;
-      } catch (err) {
-        console.error(`Tracking failed for order ${order._id}:`, err.message);
       }
+    } catch (err) {
+      console.error(
+        `Shipease tracking failed for order ${order.orderId}:`,
+        err.message
+      );
     }
 
-    const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
-      try {
-        let cleanProductId = item.id;
-        let variationIndex = 0;
-        if (item.hasVariations && typeof item.id === "string" && item.id.includes("_")) {
-          cleanProductId = item.id.split("_")[0];
-          variationIndex = item.id.split("_")[1];
+    // Update cart items with images
+    const updatedCartItems = await Promise.all(
+      order.cartItems.map(async (item) => {
+        try {
+          let cleanProductId = item.id;
+          let variationIndex = 0;
+
+          if (
+            item.hasVariations &&
+            typeof item.id === "string" &&
+            item.id.includes("_")
+          ) {
+            cleanProductId = item.id.split("_")[0];
+            variationIndex = item.id.split("_")[1];
+          }
+
+          const product = await Product.findById(cleanProductId).select(
+            "productImage hasVariations variationPrices"
+          );
+
+          return {
+            ...item,
+            img:
+              product?.hasVariations &&
+              product.variationPrices[variationIndex]?.images?.[0]
+                ? product.variationPrices[variationIndex].images[0]
+                : product?.productImage || null,
+          };
+        } catch (err) {
+          console.error(
+            `Failed to fetch product for item in order ${order._id}:`,
+            err.message
+          );
+          return item;
         }
+      })
+    );
 
-        const product = await Product.findById(cleanProductId).select("productImage hasVariations variationPrices");
-        return {
-          ...item,
-          img: product?.hasVariations && product.variationPrices[variationIndex]?.images?.[0]
-            ? product.variationPrices[variationIndex].images[0]
-            : product?.productImage || null,
-        };
-      } catch (err) {
-        console.error(`Failed to fetch product for item in order ${order._id}:`, err.message);
-        return item;
-      }
-    }));
-
+    // Prepare response
     const enrichedOrder = {
       ...order.toObject(),
       status: newStatus,
       trackingInfo,
       cartItems: updatedCartItems,
     };
+
     res.status(200).json({ order: enrichedOrder, success: true });
   } catch (error) {
-    console.error('Error fetching order:', error);
-    res.status(500).json({ message: 'Failed to fetch order', success: false });
+    console.error("Error fetching order:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch order", success: false });
   }
 };
+
 
 export const getOrderByShiprocketId = async (req, res) => {
   try {
@@ -1343,77 +1404,54 @@ export const getOrdersByCustomerId = async (req, res) => {
   try {
     const customerId = req.params.id;
     const orders = await Order.find({ customerId }).select('-returnItems.returnVideo').sort({ createdAt: -1 });
-    const loginForm = new FormData();
-    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
-    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
+   const enrichedOrders = await Promise.all(
+  orders.map(async (order) => {
+    try {
+      const shipeasePayload = {
+        ApiKey: process.env.SHIPEASE_API_KEY,
+        OrderID: order.orderId,
+      };
 
-    const loginResponse = await axios.post(
-      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
-      loginForm,
-      {
-        headers: {
-          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
-          ...loginForm.getHeaders(),
-        },
-      }
-    );
+      const trackResponse = await axios.post(
+        "https://app.shipease.in/core-api/seller/api/track-order-by-id/",
+        shipeasePayload,
+        { headers: { "Content-Type": "application/json" } }
+      );
 
-    if (loginResponse.data.success !== "1") {
-      return res.status(401).json({ success: false, message: 'Selloship login failed', data: loginResponse.data });
-    }
+      if (trackResponse.data?.success) {
+        const statusCode = (trackResponse.data.StatusCode || "").toLowerCase();
 
-    // Enrich orders with Selloship tracking info
-    const enrichedOrders = await Promise.all(orders.map(async (order) => {
-      if (!order.selloShipAWB) {
-        return { ...order.toObject(), trackingInfo: null };
-      }
-
-      const trackForm = new FormData();
-      trackForm.append("vendor_id", loginResponse.data.vendor_id);
-      trackForm.append("device_from", loginResponse.data.device_from);
-      trackForm.append("tracking_id", order.selloShipAWB);
-
-      try {
-        const trackResponse = await axios.post(
-          'https://selloship.com/api/lock_actvs/tracking_detail',
-          trackForm,
-          {
-            headers: {
-              Authorization: loginResponse.data.access_token,
-              ...trackForm.getHeaders(),
-            },
-          }
-        );
-
-        const statusCode = trackResponse.data.status_code;
-
-        // Determine new status
         const newStatus =
-          statusCode === "2" ? "Shipped" :
-            statusCode === "3" ? "Delivered" :
-              statusCode === "4" || statusCode === "5" ? "Returned" :
-                statusCode === "6" ? "Cancelled" :
-                  "Processing";
+          statusCode === "in_transit"
+            ? "Shipped"
+            : statusCode === "delivered"
+            ? "Delivered"
+            : statusCode === "ndr"
+            ? "Returned"
+            : statusCode === "cancelled"
+            ? "Cancelled"
+            : "Processing";
 
-        // Update the order in the database if status changed
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
         }
 
         return {
           ...order.toObject(),
-          trackingInfo: trackResponse.data,
           status: newStatus,
         };
-
-      } catch (err) {
-        console.error(`Tracking failed for order ${order._id}:`, err.message);
-        return {
-          ...order.toObject(),
-          trackingInfo: null,
-        };
+      } else {
+        return order.toObject();
       }
-    }));
+    } catch (err) {
+      console.error(
+        `Shipease tracking failed for order ${order.orderId}:`,
+        err.message
+      );
+      return order.toObject();
+    }
+  })
+);
     const enrichedOrdersWithImages = await Promise.all(enrichedOrders.map(async (order) => {
       const updatedCartItems = await Promise.all(order.cartItems.map(async (item) => {
         try {
@@ -2178,64 +2216,45 @@ export const updateOrderStatusesAndSendEmails = async () => {
       selloShipAWB: { $exists: true, $ne: null }
     }).select('-returnItems').populate("customerId");
 
-    const loginForm = new FormData();
-    loginForm.append("email", process.env.SELLOSHIP_EMAIL);
-    loginForm.append("password", process.env.SELLOSHIP_PASSWORD);
-
-    const loginResponse = await axios.post(
-      'https://selloship.com/api/lock_actvs/Vendor_login_from_vendor_all_order',
-      loginForm,
-      {
-        headers: {
-          Authorization: '9f3017fd5aa17086b98e5305d64c232168052b46c77a3cc16a5067b',
-          ...loginForm.getHeaders(),
-        },
-      }
-    );
-
-    if (loginResponse.data.success !== "1") {
-      console.error("Selloship login failed", loginResponse.data);
-      return;
-    }
-
     for (const order of orders) {
-      const trackForm = new FormData();
-      trackForm.append("vendor_id", loginResponse.data.vendor_id);
-      trackForm.append("device_from", loginResponse.data.device_from);
-      trackForm.append("tracking_id", order.selloShipAWB);
-
       try {
-        const trackResponse = await axios.post(
-          'https://selloship.com/api/lock_actvs/tracking_detail',
-          trackForm,
-          {
-            headers: {
-              Authorization: loginResponse.data.access_token,
-              ...trackForm.getHeaders(),
-            },
-          }
-        );
+      const shipeasePayload = {
+        ApiKey: process.env.SHIPEASE_API_KEY,
+        OrderID: order.orderId,
+      };
 
-        const statusCode = trackResponse.data.status_code;
+      const trackResponse = await axios.post(
+        "https://app.shipease.in/core-api/seller/api/track-order-by-id/",
+        shipeasePayload,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (trackResponse.data?.success) {
+        const statusCode = (trackResponse.data.StatusCode || "").toLowerCase();
+
         const newStatus =
-          statusCode === "2" ? "Shipped" :
-            statusCode === "3" ? "Delivered" :
-              statusCode === "4" || statusCode === "5" ? "Returned" :
-                statusCode === "6" ? "Cancelled" :
-                  "Processing";
+          statusCode === "in_transit"
+            ? "Shipped"
+            : statusCode === "delivered"
+            ? "Delivered"
+            : statusCode === "ndr"
+            ? "Returned"
+            : statusCode === "cancelled"
+            ? "Cancelled"
+            : "Processing";
 
         if (order.status !== newStatus) {
           await Order.findByIdAndUpdate(order._id, { status: newStatus });
-
-          if (newStatus === "Shipped" || newStatus === "Delivered" || newStatus === "Returned") {
-            await sendOrderStatusUpdateEmail(order.customerId.email, order.orderId, order.customerId?.fullname, newStatus, order.selloShipAWB)
-          }
-
-          console.log(`Status updated and email sent for order ${order.orderId}`);
         }
-      } catch (err) {
-        console.error(`Tracking failed for order ${order._id}:`, err.message);
-      }
+
+      } 
+    } catch (err) {
+      console.error(
+        `Shipease tracking failed for order ${order.orderId}:`,
+        err.message
+      );
+      
+    }
     }
   } catch (err) {
     console.error("Cron job error:", err.message);
